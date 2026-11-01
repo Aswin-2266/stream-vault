@@ -23,6 +23,7 @@ async def search_handler(client: Client, message: Message):
     results = await db.search_files(query, limit=10)
 
     if results:
+        buttons = []
         for item in results:
             title = item.get("file_name", "Unknown")
             size_str = format_size(item.get("file_size", 0))
