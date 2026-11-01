@@ -1,5 +1,6 @@
 import re
 import datetime
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 import config
 
@@ -14,7 +15,7 @@ class Database:
             print("[!] Database: MONGO_URI is not provided. Database functionality disabled.")
             return
         try:
-            self._client = AsyncIOMotorClient(config.MONGO_URI)
+            self._client = AsyncIOMotorClient(config.MONGO_URI, tlsCAFile=certifi.where())
             self._db = self._client[config.DATABASE_NAME]
             self._files = self._db["files"]
             print("[+] Database: Connected successfully to MongoDB Atlas.")
