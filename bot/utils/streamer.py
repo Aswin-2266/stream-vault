@@ -1,4 +1,6 @@
 import re
+import math
+import aiohttp
 from aiohttp import web
 import config
 from bot.utils.database import db
@@ -40,8 +42,8 @@ async def root_handler(request):
 @routes.get("/stream/{file_id}")
 async def stream_handler(request):
     """
-    Streams a video chunk directly from Telegram using HTTP Range Requests.
-    Enables instant seeking in VLC, MPV, and web browsers.
+    Streams video directly from Telegram using HTTP Range Requests.
+    Accurately maps requested byte ranges into 1 MiB Telegram chunk offsets.
     """
     file_id = request.match_info.get("file_id")
     file_doc = await db.get_file_by_id(file_id)
@@ -55,9 +57,9 @@ async def stream_handler(request):
     tg_file_id = file_doc.get("file_id", file_id)
 
     range_header = request.headers.get("Range")
-    
+    CHUNK_SIZE = 1024 * 1024  # Hydrogram chunk size is 1 MiB
+
     if not range_header:
-        # Full content response header
         headers = {
             "Content-Type": mime_type,
             "Content-Length": str(file_size),
@@ -67,8 +69,11 @@ async def stream_handler(request):
         response = web.StreamResponse(status=200, headers=headers)
         await response.prepare(request)
         if bot_instance:
-            async for chunk in bot_instance.stream_media(tg_file_id):
-                await response.write(chunk)
+            try:
+                async for chunk in bot_instance.stream_media(tg_file_id):
+                    await response.write(chunk)
+            except (aiohttp.client_exceptions.ClientConnectionResetError, ConnectionResetError):
+                pass
         return response
 
     # Parse Range: bytes=start-end
@@ -78,6 +83,9 @@ async def stream_handler(request):
 
     start_byte = int(range_match.group(1))
     end_byte = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+    if end_byte >= file_size:
+        end_byte = file_size - 1
+
     content_length = (end_byte - start_byte) + 1
 
     headers = {
@@ -92,9 +100,28 @@ async def stream_handler(request):
     await response.prepare(request)
 
     if bot_instance:
-        # Stream chunks starting from requested offset
-        async for chunk in bot_instance.stream_media(tg_file_id, offset=start_byte, limit=content_length):
-            await response.write(chunk)
+        # Hydrogram offset & limit are in 1 MiB chunk units, not raw bytes!
+        offset_chunk = start_byte // CHUNK_SIZE
+        skip_first_chunk_bytes = start_byte % CHUNK_SIZE
+        limit_chunks = math.ceil((end_byte - (offset_chunk * CHUNK_SIZE) + 1) / CHUNK_SIZE)
+
+        bytes_written = 0
+        try:
+            async for chunk in bot_instance.stream_media(tg_file_id, offset=offset_chunk, limit=limit_chunks):
+                if skip_first_chunk_bytes > 0:
+                    chunk = chunk[skip_first_chunk_bytes:]
+                    skip_first_chunk_bytes = 0
+
+                remaining = content_length - bytes_written
+                if len(chunk) > remaining:
+                    chunk = chunk[:remaining]
+
+                await response.write(chunk)
+                bytes_written += len(chunk)
+                if bytes_written >= content_length:
+                    break
+        except (aiohttp.client_exceptions.ClientConnectionResetError, ConnectionResetError):
+            pass
 
     return response
 
