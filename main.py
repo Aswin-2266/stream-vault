@@ -1,0 +1,67 @@
+import asyncio
+import logging
+from hydrogram import Client, idle
+import config
+from bot.utils.database import db
+from bot.utils.streamer import set_bot_instance, start_web_server
+
+# Setup structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s"
+)
+logger = logging.getLogger("StreamVault")
+
+async def main():
+    logger.info("Initializing StreamVault...")
+
+    # Step 1: Connect to MongoDB Atlas
+    db.connect()
+
+    # Step 2: Initialize Telegram Bot Client
+    bot = Client(
+        name="stream_vault_bot",
+        api_id=config.API_ID,
+        api_hash=config.API_HASH,
+        bot_token=config.BOT_TOKEN,
+        plugins=dict(root="bot.handlers")
+    )
+
+    # Step 3: Register bot with the streaming web server
+    set_bot_instance(bot)
+
+    # Step 4: Start web server (Port 7860 on Hugging Face Spaces)
+    web_runner = await start_web_server()
+
+    # Step 5: Start Telegram Bot
+    await bot.start()
+    bot_info = await bot.get_me()
+    logger.info(f"Telegram Bot Online: @{bot_info.username} (ID: {bot_info.id})")
+
+    # Step 6: Initial channel auto-indexer (if configured in .env)
+    if config.CHANNELS_TO_INDEX:
+        logger.info(f"Auto-indexing {len(config.CHANNELS_TO_INDEX)} channels configured on startup...")
+        for channel in config.CHANNELS_TO_INDEX:
+            try:
+                logger.info(f"Connecting to initial channel: {channel}")
+            except Exception as e:
+                logger.warning(f"Could not index channel {channel}: {e}")
+
+    logger.info("StreamVault Engine is fully operational! Listening for requests...")
+    
+    # Keep application running
+    await idle()
+
+    # Clean shutdown
+    logger.info("Shutting down StreamVault...")
+    await bot.stop()
+    await web_runner.cleanup()
+
+if __name__ == "__main__":
+    if not config.validate_config():
+        logger.warning("Application started with incomplete configuration. Please check your .env settings.")
+    
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("StreamVault stopped.")

@@ -1,0 +1,145 @@
+import asyncio
+from hydrogram import Client, filters
+from hydrogram.types import Message
+import config
+from bot.utils.database import db
+from bot.handlers.start import is_authorized
+
+def format_size(bytes_size: int) -> str:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if bytes_size < 1024.0:
+            return f"{bytes_size:.2f} {unit}"
+        bytes_size /= 1024.0
+    return f"{bytes_size:.2f} PB"
+
+@Client.on_message(filters.command("index") & filters.private)
+async def index_channel_handler(client: Client, message: Message):
+    """
+    Crawls and indexes all media from a public Telegram channel into the private vault.
+    Usage: /index @channel_username
+    """
+    if not is_authorized(message.from_user.id):
+        await message.reply_text("⛔ Unauthorized.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply_text("ℹ️ **Usage:** `/index @channel_username`")
+        return
+
+    channel_target = args[1].strip()
+    status_msg = await message.reply_text(f"⏳ **Connecting to** `{channel_target}`...")
+
+    try:
+        chat = await client.get_chat(channel_target)
+    except Exception as e:
+        await status_msg.edit_text(f"❌ **Failed to access channel:** `{e}`")
+        return
+
+    await status_msg.edit_text(f"📥 **Indexing media from:** `{chat.title}`...\nPlease wait.")
+
+    total_indexed = 0
+    total_scanned = 0
+
+    try:
+        async for msg in client.get_chat_history(chat.id):
+            total_scanned += 1
+            media = msg.video or msg.document
+            if media and (msg.video or (msg.document and msg.document.mime_type and "video" in msg.document.mime_type)):
+                file_name = getattr(media, "file_name", None) or f"video_{msg.id}.mp4"
+                file_size = media.file_size
+                file_id = media.file_id
+                unique_id = media.file_unique_id
+                mime_type = getattr(media, "mime_type", "video/mp4")
+
+                # Forward/copy media to our private storage vault
+                try:
+                    copied = await client.copy_message(
+                        chat_id=config.LOG_CHANNEL_ID,
+                        from_chat_id=chat.id,
+                        message_id=msg.id
+                    )
+                    vault_file_id = (copied.video or copied.document).file_id
+                except Exception:
+                    vault_file_id = file_id
+
+                file_info = {
+                    "file_name": file_name,
+                    "file_size": file_size,
+                    "file_id": vault_file_id,
+                    "unique_id": unique_id,
+                    "source_chat_id": chat.id,
+                    "mime_type": mime_type,
+                    "caption": msg.caption or file_name
+                }
+                await db.save_file(file_info)
+                total_indexed += 1
+
+                if total_indexed % 25 == 0:
+                    try:
+                        await status_msg.edit_text(
+                            f"🔄 **Indexing Progress:**\n"
+                            f"• Scanned: `{total_scanned}` messages\n"
+                            f"• Saved Movies: `{total_indexed}`"
+                        )
+                    except Exception:
+                        pass
+
+        await status_msg.edit_text(
+            f"✅ **Indexing Complete!**\n\n"
+            f"• **Channel:** `{chat.title}`\n"
+            f"• **Total Messages Scanned:** `{total_scanned}`\n"
+            f"• **New Files Saved:** `{total_indexed}`"
+        )
+    except Exception as e:
+        await status_msg.edit_text(f"⚠️ Indexing interrupted: `{e}`\nSaved `{total_indexed}` files before stopping.")
+
+@Client.on_message((filters.video | filters.document) & filters.private)
+async def auto_save_handler(client: Client, message: Message):
+    """
+    Auto-saves and indexes any video or document forwarded or sent directly to the bot.
+    """
+    if not is_authorized(message.from_user.id):
+        return
+
+    media = message.video or message.document
+    if not media:
+        return
+
+    if message.document and not (media.mime_type and "video" in media.mime_type):
+        return  # skip non-video documents
+
+    file_name = getattr(media, "file_name", None) or f"video_{message.id}.mp4"
+    file_size = media.file_size
+    unique_id = media.file_unique_id
+
+    status = await message.reply_text("💾 **Saving to StreamVault...**")
+
+    # Copy to the permanent log channel
+    try:
+        copied = await message.copy(chat_id=config.LOG_CHANNEL_ID)
+        vault_media = copied.video or copied.document
+        vault_file_id = vault_media.file_id
+    except Exception as e:
+        vault_file_id = media.file_id
+
+    file_info = {
+        "file_name": file_name,
+        "file_size": file_size,
+        "file_id": vault_file_id,
+        "unique_id": unique_id,
+        "source_chat_id": message.chat.id,
+        "mime_type": getattr(media, "mime_type", "video/mp4"),
+        "caption": message.caption or file_name
+    }
+
+    await db.save_file(file_info)
+    stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
+
+    caption = (
+        f"✅ **Successfully Saved to Vault!**\n\n"
+        f"📁 **File:** `{file_name}`\n"
+        f"📦 **Size:** `{format_size(file_size)}`\n\n"
+        f"🔗 **Direct Stream Link (VLC/Browser):**\n`{stream_link}`"
+    )
+    await status.edit_text(caption)

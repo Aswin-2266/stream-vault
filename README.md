@@ -1,3 +1,13 @@
+---
+title: Stream Vault
+emoji: ⚡
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # stream-vault
 
 > A lightweight hybrid media indexing, cloud relay, and HTTP streaming engine.
@@ -16,16 +26,8 @@
 
 ---
 
-## 🚀 Quick Start
-
-1. **Prerequisites & Credentials:**
-   Follow our detailed [Credentials Setup Guide](docs/setup-guide.md) to set up your Telegram Bot Token, MTProto API keys, and free MongoDB Atlas cluster.
-
-2. **System Architecture:**
-   Review the detailed architectural specifications in [Architecture Plan](docs/architecture-plan.md).
-
----
+## 🚀 Deployment Guide (Hugging Face Spaces - 100% Free)
+See [docs/huggingface-deploy.md](docs/huggingface-deploy.md) for the 2-minute step-by-step setup guide.
 
 ## 📄 License
-
 MIT License. Designed for personal archiving, backup, and private streaming workflows.
