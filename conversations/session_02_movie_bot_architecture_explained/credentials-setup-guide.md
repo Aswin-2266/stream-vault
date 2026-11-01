@@ -43,5 +43,5 @@ API_ID=your_api_id
 API_HASH=your_api_hash
 BOT_TOKEN=your_bot_token
 LOG_CHANNEL_ID=-100xxxxxxxxxx
-MONGO_URI=your_mongodb_connection_uri_here
+MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
 ```

@@ -12,6 +12,8 @@ env/
 # Telegram session files & credentials
 *.session
 *.session-journal
+*.session-shm
+*.session-wal
 
 # Temporary download & processing buffers
 downloads/

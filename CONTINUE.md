@@ -1,57 +1,82 @@
-# How to Continue This Project (`stream-vault`)
+# StreamVault: Development Status & Continuation Guide
 
-This document provides instructions, full context, and an exact prompt to resume development of **stream-vault** seamlessly on your PC or in another environment.
-
----
-
-## 📌 Project Overview
-**stream-vault** is a private, self-hosted hybrid media indexing and streaming bot. It eliminates annoying 15-hour token verification systems, ad-shorteners, and local hosting costs by combining:
-1. **Telegram Cloud Storage Vault:** Media files are scraped/stored in a private Telegram channel using Telegram's free cloud storage.
-2. **Channel Scraper & AutoFilter:** Automatically scrapes and indexes movie files from public Telegram channels into MongoDB Atlas.
-3. **On-Demand Torrent Leeching:** When a requested title is not found in Telegram channels, the bot queries torrent indexers (YTS/1337x), downloads the file via `aria2c` at cloud speeds, auto-splits it if it exceeds 2 GB with `ffmpeg`, uploads it to your Telegram storage channel, and caches the `file_id`.
-4. **Dual Delivery (Native File + DDL):** Sends the native Telegram video file and embeds a **Direct Download Link (DDL) / Stream Link** in the caption powered by an asynchronous `aiohttp` web server handling HTTP Range requests (for direct playback in VLC/browser).
-5. **Access Control:** Strictly whitelisted to the owner and approved Telegram User IDs.
+This document provides complete operational context, verified environment configurations, and instructions to maintain or extend **stream-vault** on any machine.
 
 ---
 
-## 📂 Repository Context & Reference Files
-- [docs/setup-guide.md](docs/setup-guide.md): Step-by-step instructions for getting Telegram API credentials, Bot Token, Private Log Channel, and MongoDB Atlas URI.
+## 🟢 Current System Status: ONLINE & VERIFIED
+
+The core engine is fully implemented, verified, and operational:
+
+* **Telegram Bot:** `@perso_streamvault_bot` (Layer 181 MTProto connection active)
+* **Database:** MongoDB Atlas M0 Cluster (`stream-vault` database on AWS Mumbai)
+* **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
+* **Access Control:** Whitelist security active (`ALLOWED_USERS` filter on all handlers)
+* **Mobile Data Impact:** **~0 MB** consumed from your phone hotspot (Telegram cloud-to-cloud file transfers)
+
+---
+
+## 🚀 How to Run the Bot Locally
+
+Whenever you reboot your PC or resume work:
+
+1. Open PowerShell in `d:\Direct_Link`.
+2. Activate your Python environment or ensure dependencies are installed:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+3. Start the engine:
+   ```powershell
+   python main.py
+   ```
+4. Output should display:
+   ```text
+   [+] Database: Connected successfully to MongoDB Atlas.
+   [+] Web Streamer: Online on http://localhost:7860 (Port 7860)
+   Telegram Bot Online: @perso_streamvault_bot (ID: 9008960250)
+   StreamVault Engine is fully operational! Listening for requests...
+   ```
+
+---
+
+## 📱 Bot Usage & Commands Reference
+
+| Action | How to Trigger | What Happens |
+| :--- | :--- | :--- |
+| **Start / Help** | Send `/start` to `@perso_streamvault_bot` | Greets user, verifies whitelist authorization, and displays indexed database stats. |
+| **Search Movies** | Send any title (e.g. `Inception` or `/search Avatar`) | Queries MongoDB Atlas via regex and returns interactive inline buttons with file sizes and resolutions. |
+| **Instant Delivery** | Tap any search result button | Sends the native Telegram video file with the **Direct Stream Link (VLC/browser)** in the caption. |
+| **1-Click Auto-Save** | Forward any video/movie to the bot | Copies file to private storage vault, records `file_id` in MongoDB, and replies with permanent stream link. |
+| **Bulk Channel Index** | Send `/index @channel_username` | Crawls historical channel posts, extracts all media, saves to vault, and indexes into database. |
+
+---
+
+## 📂 Project Architecture & Documentation
+
 - [docs/architecture-plan.md](docs/architecture-plan.md): Full technical architecture, component flowcharts, and module breakdown.
-- [docs/huggingface-deploy.md](docs/huggingface-deploy.md): 3-minute 100% free cloud deployment guide (zero credit card).
-- [conversations/README.md](conversations/README.md): Dedicated archive holding full conversational logs, transcripts, and artifacts for both Antigravity sessions (`session_01` & `session_02`).
+- [docs/setup-guide.md](docs/setup-guide.md): Credentials walkthrough for BotFather, Telegram MTProto API, and MongoDB Atlas.
+- [docs/huggingface-deploy.md](docs/huggingface-deploy.md): Docker deployment documentation.
+- [conversations/README.md](conversations/README.md): Complete archive of historical Antigravity design sessions (`session_01` & `session_02`).
 
 ---
 
-## 📋 Confirmed Design Decisions (From `/grill-me` Interview)
-- **Primary Source:** Public Telegram channel scraping (bootstraps with a channel list on startup + `/index @channel` command).
-- **Secondary Source:** Torrent fallback for unindexed movies with high-seed torrent lookups.
-- **File Sizing:** Shows all resolutions (up to 4K). Files exceeding 1.99 GB are automatically split into parts using `ffmpeg` stream copying (no re-encoding) to comply with Telegram's free 2 GB upload limit.
-- **User Interface:** Interactive inline button search results. Selecting an item delivers the Telegram video file with the direct streaming link in the caption.
-- **Security:** Private whitelist only (`ALLOWED_USERS` in `.env`).
-- **Initial Target:** Tested locally on PC first, designed cleanly for future 24/7 cloud deployment (e.g. Oracle Cloud Always-Free or Linux VPS).
+## 🔮 Phase 2 Roadmap (Pending Enhancements)
+
+- [ ] **Google Colab Torrent Leech Notebook:** Create `notebooks/leech_colab.ipynb` to download heavy 4K / >2GB torrents in Google's cloud and auto-upload to your vault with 0 hotspot data.
+- [ ] **Cloudflare Tunnel (`cloudflared`):** One-command public HTTPS proxy for external VLC streaming when away from home.
+- [ ] **Multi-Channel Auto-Listener:** Background task listening to live posts in whitelisted public channels and auto-indexing them without manual `/index` commands.
 
 ---
 
-## 🚀 Exact Prompt to Continue Development
+## 🤖 Prompt to Resume in Antigravity or Any Agent
 
-When you open this project in **Antigravity** (or another AI coding agent) on your PC, paste this exact prompt:
+When continuing on another machine or beginning a new turn, paste this prompt:
 
 ```text
 I am continuing development on stream-vault (d:\Direct_Link). 
-Please read CONTINUE.md, docs/setup-guide.md, and docs/architecture-plan.md to understand the architecture and confirmed requirements. 
-Let's proceed with Step 1 of the implementation plan:
-1. Create the PowerShell dependency checker (scripts/check_dependencies.ps1) for Python, ffmpeg, and aria2c.
-2. Create requirements.txt and .env.example.
-3. Build config.py and the asynchronous MongoDB database client in bot/utils/database.py.
+Please read CONTINUE.md and docs/architecture-plan.md to understand the current operational state. 
+The core bot (@perso_streamvault_bot) and MongoDB Atlas integration are already running. 
+Let's proceed with Phase 2:
+1. Build the Google Colab Torrent Leech Notebook (notebooks/leech_colab.ipynb).
+2. Configure Cloudflare Tunnel integration for public streaming links.
 ```
-
----
-
-## 🛠️ Next Steps in the Implementation Roadmap
-1. **Step 1: Environment & Dependencies** (`scripts/check_dependencies.ps1`, `requirements.txt`, `.env.example`).
-2. **Step 2: Database & Configuration** (`config.py`, `bot/utils/database.py`).
-3. **Step 3: Dual Client & Security Whitelist** (`bot/client.py`, `bot/handlers/start.py`).
-4. **Step 4: Channel Scraper & Indexer** (`bot/handlers/indexer.py`).
-5. **Step 5: Torrent Leech & Splitter** (`bot/utils/torrent.py`, `bot/utils/splitter.py`, `bot/handlers/leech.py`).
-6. **Step 6: Stream Server & Search Delivery** (`bot/utils/streamer.py`, `bot/handlers/search.py`).
-7. **Step 7: Verification & Testing**.

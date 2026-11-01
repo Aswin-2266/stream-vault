@@ -1,0 +1,38 @@
+Command exited with code 0.
+
+Command output:
+
+
+    Directory: D:\Direct_Link\conversations
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  07.43 PM                session_01_direct_download_link_generator                            
+d-----        01-11-2026  07.43 PM                session_02_movie_bot_architecture_explained                          
+
+
+    Directory: D:\Direct_Link\conversations\session_01_direct_download_link_generator
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  07.43 PM                .system_generated                                                    
+d-----        01-11-2026  07.43 PM                .user_uploaded                                                       
+d-----        01-11-2026  07.43 PM                scratch                                                              
+
+
+    Directory: D:\Direct_Link\conversations\session_02_movie_bot_architecture_explained
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  07.43 PM                .system_generated                                                    
+d-----        01-11-2026  07.43 PM                .user_uploaded                                                       
+d-----        01-11-2026  07.43 PM                scratch                                                              
+-a----        01-11-2026  07.04 PM           1828 credentials-setup-guide.md                                           
+-a----        01-11-2026  07.04 PM            246 credentials-setup-guide.md.metadata.json                             
+-a----        01-11-2026  07.12 PM           4706 hybrid-movie-bot-plan.md                                             
+-a----        01-11-2026  07.12 PM            323 hybrid-movie-bot-plan.md.metadata.json                               
+
+

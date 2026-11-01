@@ -1,0 +1,5 @@
+Command exited with code 0.
+
+Command output:
+[+] Database: Connected successfully to MongoDB Atlas.
+MongoDB Test Success! Current file count in vault: 0

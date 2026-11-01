@@ -1,6 +1,10 @@
-# Hybrid Movie Bot: Architecture & Implementation Plan
+# StreamVault: Architecture & Implementation Plan
 
-A private, ad-free Telegram bot combining **Channel Scraping**, **Torrent Leeching**, and **Direct Stream Link Generation** with no 15-hour token expirations.
+A private, ad-free Telegram media system combining **Channel Scraping**, **MongoDB AutoFilter**, **Direct Stream Link Generation**, and **Torrent Leeching** with no 15-hour token expirations.
+
+### 🟢 Status Summary
+* **Phase 1 (Active & Operational):** Telegram Channel Scraping, 1-Click Auto-Save, MongoDB Atlas Multi-token Search, `aiohttp` HTTP Range DDL streaming server, Whitelist security.
+* **Phase 2 (Roadmap):** Google Colab Torrent Leeching Notebook (for 0-hotspot-data downloads of >2GB/4K releases) and Cloudflare Tunnel integration.
 
 ---
 
