@@ -1,0 +1,28 @@
+Command exited with code 0.
+
+Command output:
+warning: in the working copy of 'CONTINUE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/logs/chunks/transcript/00000000.jsonl', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/logs/chunks/transcript_full/00000000.jsonl', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/logs/chunks/transcript_full/00000001.jsonl', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/logs/transcript.jsonl', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/logs/transcript_full.jsonl', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/12/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/18/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/2/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/20/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/4/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/40/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/52/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/58/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/60/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/62/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/66/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/68/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/72/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/74/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/.system_generated/steps/8/output.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/credentials-setup-guide.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/credentials-setup-guide.md.metadata.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/hybrid-movie-bot-plan.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'conversations/hybrid-movie-bot-plan.md.metadata.json', LF will be replaced by CRLF the next time Git touches it

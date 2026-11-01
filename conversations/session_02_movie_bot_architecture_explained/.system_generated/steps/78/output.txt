@@ -1,0 +1,19 @@
+Command exited with code 0.
+
+Command output:
+
+
+    Directory: D:\Direct_Link\conversations
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  07.34 PM                .system_generated                                                    
+d-----        01-11-2026  07.34 PM                .user_uploaded                                                       
+d-----        01-11-2026  07.34 PM                scratch                                                              
+-a----        01-11-2026  07.04 PM           1828 credentials-setup-guide.md                                           
+-a----        01-11-2026  07.04 PM            246 credentials-setup-guide.md.metadata.json                             
+-a----        01-11-2026  07.12 PM           4706 hybrid-movie-bot-plan.md                                             
+-a----        01-11-2026  07.12 PM            323 hybrid-movie-bot-plan.md.metadata.json                               
+
+

@@ -1,0 +1,48 @@
+The search for "github iyear tdl telegram downloader" returned the following summary:
+**tdl** (`iyear/tdl`) is a popular, feature-rich Telegram toolkit and downloader written in Go (Golang)[1][2]. It is designed to be fast, lightweight, and capable of handling operations that standard Telegram clients might struggle with[2].
+
+### Key Features
+* **High-Speed Downloads:** Utilizes maximum bandwidth[2] and is often faster than official Telegram desktop/mobile clients[1].
+* **Protected Content:** Supports downloading files and media from restricted or protected chats where saving/forwarding is normally disabled[1].
+* **Resource Efficient:** Low CPU and memory footprint with a single-file startup[2].
+* **Advanced Operations:** 
+  * Forward messages with automatic fallback and message routing[1].
+  * Upload files back to Telegram[1].
+  * Export chat histories, members, or subscriber lists to JSON[2].
+
+### Installation Options
+You can install `tdl` using various package managers depending on your operating system[3]:
+
+* **Homebrew (macOS / Linux):**
+  ```bash
+  brew install telegram-downloader
+  ```
+* **Scoop (Windows):**
+  ```bash
+  scoop bucket add extras
+  scoop install telegram-downloader
+  ```
+* **Termux (Android):**
+  ```bash
+  pkg install tdl
+  ```
+* **Arch Linux (AUR):**
+  ```bash
+  yay -S tdl
+  ```
+* **Go Install:**
+  ```bash
+  go install github.com/iyear/tdl@latest
+  ```
+
+### Quick Links
+* **GitHub Repository:** [iyear/tdl on GitHub](https://github.com/iyear/tdl)[1]
+* **Official Documentation:** [tdl Docs by iyear](https://docs.iyear.me/tdl/)[4]
+
+Sources:
+[1] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHl3cHBADqZXvAdIYwQH6qfXUCSrZB5SECsgu6xEWkoBVG_TEnFeEa_WFOaHrP6qW3UsfHkJewhPhvaukFWBtHGvU5HjayBbCLls_9MLfURZqoI)
+[2] [iyear.me](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFPO5G9Wy7kbLlAAVZgUgs7L9moG1Q8r969Wc2DEMgsoYu0LAeAXpJJ_3oaMsZUVut9cun3X1SmXH_i7Ph3b65lRvh5HtqN_SWKlPT1rJtUOA==)
+[3] [iyear.me](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFGf8q8ugDvmM1vwCfhQK1XLY7VwZWbUWddW0_QOr3hquQeHVYUuOfT5o-0kWVneHqrMFs9PC5dBgZ9iQJTyi1wUgle7jh_ojdzgOdRe3e2O7B7Ln-V1pGpNkq034XyWC1bKMclr1XeTpUcM_m2)
+[4] [iyear.me](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFPO5G9Wy7kbLlAAVZgUgs7L9moG1Q8r969Wc2DEMgsoYu0LAeAXpJJ_3oaMsZUVut9cun3X1SmXH_i7Ph3b65lRvh5HtqN_SWKlPT1rJtUOA==)
+
+Note: Source URLs are HTTP redirects; check where they resolve if you need the direct link.

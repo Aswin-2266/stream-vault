@@ -17,7 +17,8 @@ This document provides instructions, full context, and an exact prompt to resume
 ## 📂 Repository Context & Reference Files
 - [docs/setup-guide.md](docs/setup-guide.md): Step-by-step instructions for getting Telegram API credentials, Bot Token, Private Log Channel, and MongoDB Atlas URI.
 - [docs/architecture-plan.md](docs/architecture-plan.md): Full technical architecture, component flowcharts, and module breakdown.
-- `conversations/`: Full directory copy containing transcripts, raw step logs, and previous design artifacts.
+- [docs/huggingface-deploy.md](docs/huggingface-deploy.md): 3-minute 100% free cloud deployment guide (zero credit card).
+- [conversations/README.md](conversations/README.md): Dedicated archive holding full conversational logs, transcripts, and artifacts for both Antigravity sessions (`session_01` & `session_02`).
 
 ---
 
