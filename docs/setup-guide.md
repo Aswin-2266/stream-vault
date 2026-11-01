@@ -72,9 +72,9 @@ MongoDB will store the filenames, resolutions, sizes, and Telegram `file_id` poi
    - Choose **Drivers** (Python).
    - Copy the connection URI string. It looks like:
      ```text
-     mongodb+srv://moviebot:<password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
+     mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/?retryWrites=true&w=majority
      ```
-   - Replace `<password>` with the database password you created in step 5.
+   - Replace `<username>` and `<password>` with your database user credentials.
 7. **Save this connection string** as your `MONGO_URI`.
 
 ---
@@ -84,9 +84,9 @@ MongoDB will store the filenames, resolutions, sizes, and Telegram `file_id` poi
 Once you have completed these steps, your project configuration file (`.env`) will contain:
 
 ```env
-API_ID=12345678
-API_HASH=abcdef1234567890abcdef1234567890
-BOT_TOKEN=1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ
-LOG_CHANNEL_ID=-1001987654321
-MONGO_URI=mongodb+srv://moviebot:password@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
+API_ID=your_api_id_here
+API_HASH=your_api_hash_here
+BOT_TOKEN=your_bot_token_here
+LOG_CHANNEL_ID=-100xxxxxxxxxx
+MONGO_URI=your_mongodb_connection_uri_here
 ```
