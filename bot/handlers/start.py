@@ -33,11 +33,16 @@ async def start_handler(client: Client, message: Message):
         f"📊 **Database Stats:** `{total_files}` indexed files currently in vault."
     )
     
-    keyboard = InlineKeyboardMarkup([
+    buttons = [
         [
-            InlineKeyboardButton("🌐 Web Gateway", url=config.STREAM_URL),
-            InlineKeyboardButton("📖 Documentation", url="https://github.com/Aswin-2266/stream-vault")
+            InlineKeyboardButton("📖 GitHub Repo", url="https://github.com/Aswin-2266/stream-vault")
         ]
-    ])
+    ]
+
+    # Only add Web Gateway button if STREAM_URL is a valid public web URL (Telegram rejects localhost in buttons)
+    if config.STREAM_URL.startswith("https://") and "localhost" not in config.STREAM_URL and "127.0.0.1" not in config.STREAM_URL:
+        buttons[0].insert(0, InlineKeyboardButton("🌐 Web Gateway", url=config.STREAM_URL))
+
+    keyboard = InlineKeyboardMarkup(buttons)
 
     await message.reply_text(text, reply_markup=keyboard, disable_web_page_preview=True)
