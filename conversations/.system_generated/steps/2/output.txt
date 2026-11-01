@@ -1,0 +1,58 @@
+The search for "how telegram movie bots work FileStore AutoFilter Pyrogram" returned the following summary:
+Telegram movie bots—often built using the **Pyrogram** library[1] and featuring systems like **AutoFilter** and **FileStore**—have become immensely popular for managing, searching, and distributing media files. 
+
+The architecture, underlying components, and workflow of how these bots operate are broken down below.
+
+---
+
+### 1. Core Technologies Involved
+
+*   **Pyrogram (or Telethon):** A feature-rich, asynchronous Python framework built on Telegram's MTProto API[2][3]. Unlike the standard Telegram Bot API (which has limitations), Pyrogram allows deep interaction, high performance[2], and userbot capabilities (interacting like a real user account if needed).
+*   **MongoDB:** A NoSQL database used to store metadata about movies[4] (file names, sizes, unique Telegram file IDs, and message IDs). 
+*   **The Index/Source Channel:** A private Telegram channel where the actual movie files are uploaded and safely stored away from copyright strikes or clutter.
+
+---
+
+### 2. How the Components Work
+
+#### A. The AutoFilter System
+The AutoFilter feature allows the bot to scan database files automatically when a user types a query[1][5].
+1. **Indexing:** The bot is added as an administrator to a storage/source channel[6]. When new files (movies/series) are posted in that channel, the bot's event listener picks them up.
+2. **Saving to Database:** The bot extracts the file's metadata (e.g., *"Inception.2010.1080p.mkv"*) and saves it into **MongoDB**, along with the unique Telegram `file_id` and the message link[4].
+3. **Searching:** When a user types a movie name in a public group chat (where the bot is active) or in the bot's private messages (PM), the **AutoFilter** code queries MongoDB using regex or text-search matching[5].
+4. **Result Delivery:** The bot replies with inline buttons displaying the matching files found in the database[4][5].
+
+#### B. The FileStore System
+Telegram limits how bots send files directly across chats without deep linking, and standard bots can face restrictions sending massive files. **FileStore** solves this using Telegram's **Start Token / Deep Linking** mechanism (`t.me/YourBot?start=file_encodedstring`).
+1. Instead of dumping a heavy movie file directly into a group chat (which clutters the group and invites bans), the bot generates a secure, trackable inline button or text link[7].
+2. When the user clicks the link, it redirects them to the bot’s private chat (PM) with a payload parameter (e.g., `/start get_file_12345`).
+3. The bot reads the parameter, fetches the actual file location (`file_id`) from MongoDB, and safely delivers the file privately to the user. 
+4. *Monetization layer:* Many FileStore bots inject **URL shorteners**[8][9] into this routing step. Users must pass through an ad-link shortener to get the final file access token, generating revenue for the bot administrator[9][10].
+
+---
+
+### 3. Step-by-Step Workflow (The Lifecycle of a Movie Request)
+
+1. **User Input:** A user joins a movie group and types: `Avatar 2`.
+2. **Event Trigger:** Pyrogram catches the message using filters (`@app.on_message()`)[11].
+3. **Database Query:** The bot queries MongoDB for documents matching `"Avatar 2"`[4].
+4. **Inline Markup Generation:** If matches are found, the bot compiles them into a clean message with inline buttons (e.g., `[ 📥 Download Avatar 2 (1080p) ]`)[6].
+5. **Redirection/Delivery:** 
+   * If it uses **FileStore**, clicking the button opens the bot in PM via a deep-link[7].
+   * The bot verifies if the user completed required steps (like joining a backup channel, known as *Force Subscribe*[9]).
+6. **File Streaming:** Once verified, the bot uses Pyrogram’s `client.send_document()` or `client.send_video()` method using the stored `file_id`, instantly pushing the file to the user without needing to re-upload it.
+
+Sources:
+[1] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFYjTaC-7Hph5MlODirKadn7_LuxRUoA5pCaa4GfxEHgu0yNzi-vwNwPL5X_4J4JZ3MI44Ha2kY7AmKx0evj9jdv5OLQQDc_PL-BS3kj3MQFSELXQYVwWfLuDMHJsmO0Ph4-A==)
+[2] [projectshop.in](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGG2j1EsDtVbm1RlLOR2F4vU2xOzHinPtATkd5ey1WXyPE7DQNoSwjVlWi19DoSh8pvtMgq2niknj5KMYj-oligH1ET54a2ReZ72rE87ekChbrqQYRkAxRIZoy_kRxLtGA59N4SiY7SMEbZdiQqnlo=)
+[3] [projectshop.in](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGG2j1EsDtVbm1RlLOR2F4vU2xOzHinPtATkd5ey1WXyPE7DQNoSwjVlWi19DoSh8pvtMgq2niknj5KMYj-oligH1ET54a2ReZ72rE87ekChbrqQYRkAxRIZoy_kRxLtGA59N4SiY7SMEbZdiQqnlo=)
+[4] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFYjTaC-7Hph5MlODirKadn7_LuxRUoA5pCaa4GfxEHgu0yNzi-vwNwPL5X_4J4JZ3MI44Ha2kY7AmKx0evj9jdv5OLQQDc_PL-BS3kj3MQFSELXQYVwWfLuDMHJsmO0Ph4-A==)
+[5] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGk7u8BKX9S5i3GwgCtd1PWzeDps3zAtcQX6agWf2FvcMkZZLyMnpI-S2RcN4DPxwoFiFtpwX3MFRS-bsKpbsgUCM412UwqWSN5bD21NMML1imDmLiEVFm1c9c3bQyITPapEQ03UgraXrL_)
+[6] [dev.to](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE-RVknN60ujbBBuzZS2sQFbPfwhMaitxgXA-lxN_VlP44QkZlOzd4myEeosVyT8dq0e8d799jxlAxHQa8U7TWDTSwx7fbU2dfMJb2oA5EVA52LfkmkPHvZQ5XansZxMBFkt1DyX7-EO6tfBkQ1tsc0UBJG_770veQgaGqqxQ==)
+[7] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHthqE2U6By9y1GUei1PNzwtBhej-djq0Y-S5DX67STu6zRrBd-vMLeu5qzChc9Fwz2jwYX7mocE4DFLQWkAkJNsiaTAv2EqU1kYAAPHbEGoR5FiorqE-9HEf_MM2Tr6gazhIUtgDFNbWZbOBMmVOg0egFeSc9spwoqaBrj4CAdjD0g4MJnmEDWVPkrl2WTK3YA1CNtgm-cKQ7-zIkTUC3mhe0c)
+[8] [github.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE_mH-nttc3AiTCKlR7DSziJZ3gpA91ZaqiO_GL4sjIe3UhKubWXGFzhfWE4WoRIs6hyQVcFUe5aZCp3a2E3egKY7d9gIxJlWFzdloxPM0WGIhraNhXJdDcop6dqw==)
+[9] [youtube.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9q2CBau1fxZbeWDJHku5EhIHqKnOhzkD-G6v3IlhfXqaRZ_DhJO3fXoOuPwLmnS6pVwPvqPQyhTjC4yQ6gutvryP3RUUUZ-3sQz7165Do-X5swTCHZ3ZnwvIhVPSJH34=)
+[10] [youtube.com](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9q2CBau1fxZbeWDJHku5EhIHqKnOhzkD-G6v3IlhfXqaRZ_DhJO3fXoOuPwLmnS6pVwPvqPQyhTjC4yQ6gutvryP3RUUUZ-3sQz7165Do-X5swTCHZ3ZnwvIhVPSJH34=)
+[11] [projectshop.in](https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGDgsgoTZ6sMt0CnnYyCvjl8kNju2XXVkN8G5OB9-RH2VvxRx7f5oafHbHYyYERRmvwEg93AdMRjFrqOlkTqjojI-M1TMgWBfrZTifyCBMpPYE5X6TS_yTeY2Yw13697qMXdRuCKl-dwd6Si9D8dz6FXbH_go3-DMEE)
+
+Note: Source URLs are HTTP redirects; check where they resolve if you need the direct link.

@@ -1,0 +1,1 @@
+A1: Always show all available qualities (including 4K) and automatically split any file over 2GB into numbered parts.

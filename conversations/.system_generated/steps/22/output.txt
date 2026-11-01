@@ -1,0 +1,5 @@
+Command exited with code 0.
+
+Command output:
+pip 26.1.1 from C:\Users\int-vasanth\AppData\Local\Programs\Python\Python314\Lib\site-packages\pip (python 3.14)
+git version 2.56.0.windows.2

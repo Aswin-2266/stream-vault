@@ -1,0 +1,385 @@
+Command exited with code 0.
+
+Command output:
+
+
+    Directory: C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  06.27 PM                .system_generated                                                    
+d-----        01-11-2026  06.27 PM                .user_uploaded                                                       
+d-----        01-11-2026  06.27 PM                scratch                                                              
+-a----        01-11-2026  07.04 PM           1828 credentials-setup-guide.md                                           
+-a----        01-11-2026  07.04 PM            246 credentials-setup-guide.md.metadata.json                             
+-a----        01-11-2026  07.12 PM           4706 hybrid-movie-bot-plan.md                                             
+-a----        01-11-2026  07.12 PM            323 hybrid-movie-bot-plan.md.metadata.json                               
+
+
+    Directory: C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  06.27 PM                logs                                                                 
+d-----        01-11-2026  07.32 PM                steps                                                                
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\logs
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  06.27 PM                chunks                                                               
+-a----        01-11-2026  07.34 PM          77788 transcript.jsonl                                                     
+-a----        01-11-2026  07.34 PM          98805 transcript_full.jsonl                                                
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\logs\chunks
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  06.27 PM                transcript                                                           
+d-----        01-11-2026  06.27 PM                transcript_full                                                      
+
+
+    Directory: C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\lo
+    gs\chunks\transcript
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.34 PM          77788 00000000.jsonl                                                       
+
+
+    Directory: C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\lo
+    gs\chunks\transcript_full
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.34 PM          98805 00000000.jsonl                                                       
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        01-11-2026  06.57 PM                10                                                                   
+d-----        01-11-2026  06.58 PM                12                                                                   
+d-----        01-11-2026  07.01 PM                14                                                                   
+d-----        01-11-2026  07.03 PM                16                                                                   
+d-----        01-11-2026  07.03 PM                18                                                                   
+d-----        01-11-2026  06.27 PM                2                                                                    
+d-----        01-11-2026  07.03 PM                20                                                                   
+d-----        01-11-2026  07.03 PM                22                                                                   
+d-----        01-11-2026  07.04 PM                24                                                                   
+d-----        01-11-2026  07.04 PM                26                                                                   
+d-----        01-11-2026  07.06 PM                28                                                                   
+d-----        01-11-2026  07.08 PM                30                                                                   
+d-----        01-11-2026  07.09 PM                32                                                                   
+d-----        01-11-2026  07.11 PM                34                                                                   
+d-----        01-11-2026  07.12 PM                36                                                                   
+d-----        01-11-2026  07.12 PM                38                                                                   
+d-----        01-11-2026  06.28 PM                4                                                                    
+d-----        01-11-2026  07.12 PM                40                                                                   
+d-----        01-11-2026  07.28 PM                46                                                                   
+d-----        01-11-2026  07.29 PM                48                                                                   
+d-----        01-11-2026  07.29 PM                50                                                                   
+d-----        01-11-2026  07.30 PM                52                                                                   
+d-----        01-11-2026  07.30 PM                54                                                                   
+d-----        01-11-2026  07.30 PM                56                                                                   
+d-----        01-11-2026  07.30 PM                58                                                                   
+d-----        01-11-2026  07.30 PM                60                                                                   
+d-----        01-11-2026  07.30 PM                62                                                                   
+d-----        01-11-2026  07.32 PM                66                                                                   
+d-----        01-11-2026  07.32 PM                68                                                                   
+d-----        01-11-2026  07.34 PM                70                                                                   
+d-----        01-11-2026  06.54 PM                8                                                                    
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\10
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  06.57 PM            124 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\12
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  06.58 PM             56 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\14
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.01 PM             18 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\16
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.03 PM             90 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\18
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.03 PM             56 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\2
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  06.27 PM           6655 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\20
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.03 PM             60 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\22
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.03 PM            189 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\24
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.04 PM             13 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\26
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.04 PM             13 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\28
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.06 PM             76 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\30
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.08 PM            117 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\32
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.09 PM            125 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\34
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.11 PM            162 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\36
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.12 PM            103 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\38
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.12 PM             13 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\4
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  06.28 PM           6613 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\40
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.12 PM            128 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\46
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.28 PM            178 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\48
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.29 PM            106 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\50
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.29 PM            124 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\52
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM            114 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\54
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM             13 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\56
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM             13 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\58
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM            102 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\60
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM            267 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\62
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.30 PM            765 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\66
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.32 PM             56 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\68
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.32 PM             78 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\70
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  07.34 PM             47 output.txt                                                           
+
+
+    Directory: 
+    C:\Users\int-vasanth\.gemini\antigravity\brain\a01f3378-859c-4460-83c1-fd265a9ee6b1\.system_generated\steps\8
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+-a----        01-11-2026  06.54 PM            436 output.txt                                                           
+
+

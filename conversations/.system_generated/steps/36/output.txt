@@ -1,0 +1,1 @@
+A1: (Recommended) Yes, include an automated setup/check script (or instructions) for ffmpeg and aria2c.

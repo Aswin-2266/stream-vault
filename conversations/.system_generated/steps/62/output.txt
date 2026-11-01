@@ -1,0 +1,13 @@
+Command exited with code 0.
+
+Command output:
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/architecture-plan.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/setup-guide.md', LF will be replaced by CRLF the next time Git touches it
+[main (root-commit) cc32ac8] Initial commit: project structure, documentation, and architecture specs
+ 4 files changed, 248 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 README.md
+ create mode 100644 docs/architecture-plan.md
+ create mode 100644 docs/setup-guide.md

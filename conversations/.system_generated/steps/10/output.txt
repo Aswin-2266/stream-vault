@@ -1,0 +1,1 @@
+A1: Hybrid Setup: Scrapes existing Telegram channels first, and falls back to cloud torrent leeching if a movie isn't found.
