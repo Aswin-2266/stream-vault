@@ -22,7 +22,6 @@ async def search_handler(client: Client, message: Message):
     status_msg = await message.reply_text(f"🔍 Searching vault for `{query}`...")
     results = await db.search_files(query, limit=10)
 
-    buttons = []
     if results:
         for item in results:
             title = item.get("file_name", "Unknown")
@@ -31,20 +30,20 @@ async def search_handler(client: Client, message: Message):
             btn_text = f"📁 {title[:32]}... [{size_str}]" if len(title) > 32 else f"📁 {title} [{size_str}]"
             buttons.append([InlineKeyboardButton(btn_text, callback_data=f"get_{unique_id}")])
 
-    # Always provide an option to search online torrents
-    buttons.append([InlineKeyboardButton("⚡ Search Torrents Online", callback_data=f"tor_{query[:30]}")])
-
-    if results:
         await status_msg.edit_text(
             f"🎯 Found `{len(results)}` match(es) for **{query}** in your vault:",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     else:
-        await status_msg.edit_text(
-            f"❌ No files found for **{query}** in your Telegram vault.\n"
-            "Would you like to search online torrents for high-speed cloud leeching?",
-            reply_markup=InlineKeyboardMarkup(buttons)
+        total_vault = await db.count_files()
+        help_text = (
+            f"❌ No files found for **{query}** in your Telegram vault.\n\n"
+            f"📊 **Vault Status:** `{total_vault}` files currently indexed.\n\n"
+            "📥 **How to add movies:**\n"
+            "• **1-Click Auto-Save:** Simply forward any movie/video file to this chat.\n"
+            "• **Channel Importer:** Send `/index @channel_username` to import an entire channel library."
         )
+        await status_msg.edit_text(help_text)
 
 @Client.on_callback_query(filters.regex(r"^get_"))
 async def deliver_file_callback(client: Client, callback: CallbackQuery):

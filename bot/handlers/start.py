@@ -25,11 +25,10 @@ async def start_handler(client: Client, message: Message):
     text = (
         f"👋 **Welcome to StreamVault, {message.from_user.first_name}!**\n\n"
         "⚡ **Capabilities:**\n"
-        "• **Search Movies:** Send any movie name or `/search <title>`\n"
+        "• **Search Movies:** Send any movie name or `/search movie_title`\n"
         "• **Direct Downloads:** Get files with VLC/browser streaming links in caption\n"
         "• **Channel Indexer:** Send `/index @channel_username` to import files\n"
-        "• **Auto-Saver:** Forward any media file to this chat to index it permanently\n"
-        "• **Torrent Leech:** Automatic fallback to high-seed cloud torrents\n\n"
+        "• **Auto-Saver:** Forward any media file to this chat to index it permanently\n\n"
         f"📊 **Database Stats:** `{total_files}` indexed files currently in vault."
     )
     
