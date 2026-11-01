@@ -4,6 +4,7 @@ from hydrogram import Client, idle
 import config
 from bot.utils.database import db
 from bot.utils.streamer import set_bot_instance, start_web_server
+from bot.utils.tunnel import start_tunnel, stop_tunnel
 
 # Setup structured logging
 logging.basicConfig(
@@ -33,6 +34,13 @@ async def main():
     # Step 4: Start web server (Port 7860 on Hugging Face Spaces)
     web_runner = await start_web_server()
 
+    # Step 4b: Start Cloudflare Tunnel if STREAM_URL is local
+    if "localhost" in config.STREAM_URL or "127.0.0.1" in config.STREAM_URL:
+        public_url = start_tunnel(config.PORT)
+        if public_url:
+            config.STREAM_URL = public_url
+            logger.info(f"StreamVault Public Streaming Gateway: {config.STREAM_URL}")
+
     # Step 5: Start Telegram Bot
     await bot.start()
     bot_info = await bot.get_me()
@@ -54,6 +62,7 @@ async def main():
 
     # Clean shutdown
     logger.info("Shutting down StreamVault...")
+    stop_tunnel()
     await bot.stop()
     await web_runner.cleanup()
 

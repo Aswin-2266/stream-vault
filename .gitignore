@@ -24,5 +24,7 @@ cache/
 
 # Logs & OS artifacts
 *.log
+tunnel.log
+bin/cloudflared.exe
 .DS_Store
 Thumbs.db
