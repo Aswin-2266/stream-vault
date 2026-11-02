@@ -93,18 +93,35 @@ async def torrent_search_callback(client: Client, callback: CallbackQuery):
         await callback.message.edit_text(f"❌ No high-seed torrents found for `{query}`.")
         return
 
+    card_lines = [f"⚡ **Available Cloud Releases for:** `{query}`\n"]
     buttons = []
-    # Save search results temporarily in memory
-    for i, item in enumerate(results):
-        title = item["title"]
-        size = item["size"]
-        seeds = item.get("seeds", 0)
-        display_title = title[:30] + "..." if len(title) > 30 else title
-        btn_text = f"⚡ {display_title} [{size} • {seeds}s]"
-        buttons.append([InlineKeyboardButton(btn_text, callback_data=f"leech_{i}_{query[:25]}")] )
+    button_row = []
 
+    for i, item in enumerate(results, start=1):
+        num_emoji = f"{i}️⃣"
+        title = item["title"]
+        quality = item.get("quality", "HD")
+        languages = item.get("languages", "Original Audio")
+        size = item.get("size", "N/A")
+        seed_badge = item.get("seed_badge", f"{item.get('seeds', 0)} Seeds")
+
+        card_lines.append(
+            f"{num_emoji} **{title}**\n"
+            f"   🔊 **Audio:** `{languages}`\n"
+            f"   📦 **Specs:** `{quality}` • `{size}` • {seed_badge}\n"
+        )
+
+        btn_label = f"⚡ #{i} ({quality})"
+        button_row.append(InlineKeyboardButton(btn_label, callback_data=f"leech_{i-1}_{query[:25]}"))
+        if len(button_row) == 2:
+            buttons.append(button_row)
+            button_row = []
+
+    if button_row:
+        buttons.append(button_row)
+
+    full_text = "\n".join(card_lines)
     await callback.message.edit_text(
-        f"⚡ Found `{len(results)}` releases for **{query}**.\n"
-        "Select a release to leech directly to your private vault:",
+        full_text,
         reply_markup=InlineKeyboardMarkup(buttons)
     )

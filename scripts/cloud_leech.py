@@ -52,6 +52,7 @@ def run_aria2c(magnet: str, download_dir: str) -> str:
     cmd = [
         aria2,
         "--seed-time=0",
+        "--bt-stop-timeout=120",
         "--max-connection-per-server=16",
         "--split=16",
         "--min-split-size=1M",
@@ -61,7 +62,7 @@ def run_aria2c(magnet: str, download_dir: str) -> str:
     ]
     res = subprocess.run(cmd)
     if res.returncode != 0:
-        raise RuntimeError("aria2c failed to download torrent.")
+        raise RuntimeError("Torrent download stalled or timed out (no active seeders available). Please choose a release with higher seeds.")
 
     # Find largest video file
     largest_file = None
@@ -124,7 +125,14 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
     api_id = int(os.getenv("API_ID", "0"))
     api_hash = os.getenv("API_HASH", "")
     bot_token = os.getenv("BOT_TOKEN", "")
-    log_channel_id = int(os.getenv("LOG_CHANNEL_ID", "0"))
+    # Ensure channel ID has negative sign for Telegram MTProto supergroup/channel format
+    raw_log = os.getenv("LOG_CHANNEL_ID", "0").strip()
+    if raw_log and not raw_log.startswith("-"):
+        raw_log = f"-{raw_log}"
+    try:
+        log_channel_id = int(raw_log)
+    except ValueError:
+        log_channel_id = 0
     mongo_uri = os.getenv("MONGO_URI", "")
     stream_url = os.getenv("STREAM_URL", "").rstrip("/")
 

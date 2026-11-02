@@ -11,7 +11,13 @@ API_HASH = os.getenv("API_HASH", "")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 # Storage Vault Channel (must be an integer, usually starts with -100)
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "0"))
+_raw_log = os.getenv("LOG_CHANNEL_ID", "0").strip()
+if _raw_log and not _raw_log.startswith("-"):
+    _raw_log = f"-{_raw_log}"
+try:
+    LOG_CHANNEL_ID = int(_raw_log)
+except ValueError:
+    LOG_CHANNEL_ID = 0
 
 # --- Database Settings ---
 MONGO_URI = os.getenv("MONGO_URI", "")

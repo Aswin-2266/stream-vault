@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import subprocess
 import shutil
@@ -17,6 +18,93 @@ STANDARD_TRACKERS = [
     "udp://open.demonii.com:1337/announce"
 ]
 
+LANGUAGE_MAP = {
+    "tamil": ["tamil", "tam"],
+    "telugu": ["telugu", "tel"],
+    "hindi": ["hindi", "hin"],
+    "malayalam": ["malayalam", "mal"],
+    "kannada": ["kannada", "kan"],
+    "english": ["english", "eng"]
+}
+
+# Common spelling / alias corrections for popular titles
+TITLE_CORRECTIONS = {
+    "shashank": "shawshank",
+    "shawshank redemption": "shawshank redemption",
+    "avatar 2": "avatar the way of water",
+    "spiderman": "spider-man",
+    "jailer": "jailer"
+}
+
+def extract_language_and_title(query: str) -> tuple[str, str | None]:
+    """
+    Separates language keywords from the core movie search query.
+    e.g. 'Shashank redemption tamil' -> ('shawshank redemption', 'tamil')
+    """
+    tokens = query.strip().lower().split()
+    detected_lang = None
+    clean_tokens = []
+
+    for t in tokens:
+        matched = False
+        for lang_name, aliases in LANGUAGE_MAP.items():
+            if t in aliases or t == lang_name:
+                detected_lang = lang_name
+                matched = True
+                break
+        if not matched:
+            clean_tokens.append(t)
+
+    clean_query = " ".join(clean_tokens)
+    # Apply phonetic/alias corrections
+    for wrong, right in TITLE_CORRECTIONS.items():
+        if wrong in clean_query:
+            clean_query = clean_query.replace(wrong, right)
+
+    return clean_query or query, detected_lang
+
+def detect_audio_languages(title: str) -> str:
+    """Detects audio languages present in release title and returns clean string"""
+    lower = title.lower()
+    found = []
+
+    if any(k in lower for k in ["tamil", "tam"]):
+        found.append("Tamil")
+    if any(k in lower for k in ["telugu", "tel"]):
+        found.append("Telugu")
+    if any(k in lower for k in ["hindi", "hin"]):
+        found.append("Hindi")
+    if any(k in lower for k in ["malayalam", "mal"]):
+        found.append("Malayalam")
+    if any(k in lower for k in ["kannada", "kan"]):
+        found.append("Kannada")
+    if any(k in lower for k in ["english", "eng", "yts", "yify", "bluray"]):
+        found.append("English")
+
+    if "multi" in lower or "dual" in lower:
+        if not found:
+            return "Multi-Audio"
+        elif "Multi-Audio" not in found:
+            found.insert(0, "Multi-Audio")
+
+    return " + ".join(found) if found else "Original Audio"
+
+def detect_resolution(title: str) -> str:
+    lower = title.lower()
+    if any(k in lower for k in ["2160p", "4k", "uhd"]):
+        return "2160p (4K)"
+    if "1080p" in lower:
+        return "1080p"
+    if "720p" in lower:
+        return "720p"
+    if "480p" in lower:
+        return "480p"
+    if "hdrip" in lower:
+        return "HDRip"
+    if "webrip" in lower or "web-dl" in lower or "webdl" in lower:
+        return "WEB-DL"
+    return "HD"
+
 def build_magnet(info_hash: str, display_name: str) -> str:
     """Constructs a standard magnet URI with announce trackers"""
     params = [
@@ -29,19 +117,20 @@ def build_magnet(info_hash: str, display_name: str) -> str:
 
 def search_torrents(query: str, limit: int = 6) -> list[dict]:
     """
-    Dual Search Aggregator:
-    1. YTS (Clean Hollywood releases)
-    2. Apibay / Open Trackers (Regional: Tamil, Telugu, Hindi, Multi-Audio, and Scene releases)
-    Merges, deduplicates, and sorts by seed count.
+    Dual Search Aggregator with Smart Language Prioritization:
+    1. Extracts requested language (e.g. 'tamil').
+    2. Searches clean title on Apibay & YTS.
+    3. Ranks matching language releases at the top.
     """
+    clean_query, requested_lang = extract_language_and_title(query)
     results = []
     seen_hashes = set()
 
-    # Query 1: Apibay (The Pirate Bay / Open Trackers) - excellent regional & Indian movie coverage
+    # Query 1: Apibay (The Pirate Bay / Open Trackers)
     try:
         resp = requests.get(
             APIBAY_API_URL,
-            params={"q": query, "cat": "200"},  # Category 200 = Video
+            params={"q": clean_query, "cat": "200"},
             timeout=8
         )
         if resp.status_code == 200:
@@ -57,37 +146,53 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
                     except (ValueError, TypeError):
                         seeds = 0
 
-                    if seeds <= 0:
-                        continue
-
+                    name = item.get("name", "Unknown Release")
                     try:
                         size_bytes = int(item.get("size", 0))
                         size_str = format_size(size_bytes)
                     except (ValueError, TypeError):
                         size_str = "N/A"
 
-                    name = item.get("name", "Unknown Release")
+                    # Calculate seed status badge
+                    if seeds >= 10:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds > 0:
+                        seed_badge = f"⚠️ {seeds} Seeds (Low)"
+                    else:
+                        seed_badge = "❌ 0 Seeds (Dead)"
+
+                    languages = detect_audio_languages(name)
+                    resolution = detect_resolution(name)
                     magnet = build_magnet(info_hash, name)
                     seen_hashes.add(info_hash)
 
+                    # Language match score
+                    has_requested_lang = False
+                    if requested_lang:
+                        aliases = LANGUAGE_MAP.get(requested_lang, [requested_lang])
+                        if any(a in name.lower() for a in aliases) or "multi" in name.lower() or "dual" in name.lower():
+                            has_requested_lang = True
+
                     results.append({
                         "title": name,
-                        "quality": "Multi-Audio / HD" if any(w in name.lower() for w in ["tamil", "telugu", "hindi", "multi"]) else "HD",
+                        "quality": resolution,
+                        "languages": languages,
                         "size": size_str,
-                        "size_bytes": size_bytes if 'size_bytes' in locals() else 0,
                         "seeds": seeds,
+                        "seed_badge": seed_badge,
                         "magnet": magnet,
                         "hash": info_hash,
+                        "has_requested_lang": has_requested_lang,
                         "source": "Apibay / OpenTracker"
                     })
     except Exception as e:
         print(f"[!] Apibay search error: {e}")
 
-    # Query 2: YTS API (Hollywood releases, if accessible without ISP DNS blocks)
+    # Query 2: YTS API (Hollywood releases)
     try:
         yts_resp = requests.get(
             YTS_API_URL,
-            params={"query_term": query, "limit": limit, "sort_by": "seeds"},
+            params={"query_term": clean_query, "limit": limit, "sort_by": "seeds"},
             timeout=5
         )
         if yts_resp.status_code == 200:
@@ -103,35 +208,40 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
                     quality = torrent.get("quality", "720p")
                     size = torrent.get("size", "N/A")
                     seeds = torrent.get("seeds", 0)
-                    full_title = f"{title} ({year}) [{quality}]"
+                    full_title = f"{title} ({year}) [{quality}] [YTS.MX]"
                     magnet = build_magnet(torrent_hash, full_title)
                     seen_hashes.add(torrent_hash)
+
+                    if seeds >= 10:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds > 0:
+                        seed_badge = f"⚠️ {seeds} Seeds (Low)"
+                    else:
+                        seed_badge = "❌ 0 Seeds (Dead)"
+
+                    has_requested_lang = (requested_lang == "english")
 
                     results.append({
                         "title": full_title,
                         "quality": quality,
+                        "languages": "English",
                         "size": size,
-                        "size_bytes": 0,
                         "seeds": seeds,
+                        "seed_badge": seed_badge,
                         "magnet": magnet,
                         "hash": torrent_hash,
+                        "has_requested_lang": has_requested_lang,
                         "source": "YTS"
                     })
-    except Exception as e:
-        # Expected on Indian ISPs with DOT DNS blocks; Apibay acts as primary
+    except Exception:
         pass
 
-    # Sort all results by seed count descending
-    results.sort(key=lambda x: x.get("seeds", 0), reverse=True)
+    # Sort results: First prioritize requested language, then sort by seeds descending
+    results.sort(key=lambda x: (x.get("has_requested_lang", False), x.get("seeds", 0)), reverse=True)
     return results[:limit]
 
 def download_torrent_file(torrent_source: str, download_dir: str = "downloads") -> str:
-    """
-    Downloads torrent/magnet using aria2c into download_dir.
-    Returns the absolute path of the downloaded video file.
-    """
     os.makedirs(download_dir, exist_ok=True)
-    
     aria2_path = shutil.which("aria2c")
     if not aria2_path:
         raise RuntimeError("aria2c executable is not installed or not in system PATH.")
@@ -139,6 +249,7 @@ def download_torrent_file(torrent_source: str, download_dir: str = "downloads") 
     cmd = [
         "aria2c",
         "--seed-time=0",
+        "--bt-stop-timeout=120",
         "--max-connection-per-server=8",
         "--split=8",
         "--min-split-size=1M",
@@ -151,7 +262,6 @@ def download_torrent_file(torrent_source: str, download_dir: str = "downloads") 
     if process.returncode != 0:
         raise RuntimeError(f"aria2c download failed: {process.stderr.decode()[:200]}")
 
-    # Find the largest media file in the download directory
     largest_file = None
     max_size = 0
     for root, _, files in os.walk(download_dir):
