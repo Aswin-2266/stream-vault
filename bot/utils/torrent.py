@@ -58,14 +58,14 @@ LANGUAGE_MAP = {
 }
 
 @functools.lru_cache(maxsize=512)
-def get_imdb_corrected_title(query: str) -> str:
+def get_imdb_suggestion(query: str) -> str | None:
     """
-    Universal Movie/Series Auto-Correction using IMDb's open suggestion API.
-    Zero API key required; resolves arbitrary typos (e.g. 'openhimer' -> 'Oppenheimer',
-    'interstelar' -> 'Interstellar', 'shashank redemption' -> 'The Shawshank Redemption').
+    Queries IMDb open suggestions API and returns an optional suggested canonical title
+    only if it differs from the user's typed query.
+    Returns None if no suggestion is needed or if already matched.
     """
-    if not query or len(query.strip()) < 2:
-        return query
+    if not query or len(query.strip()) < 3:
+        return None
 
     clean = query.strip()
     first_char = clean[0].lower()
@@ -78,7 +78,7 @@ def get_imdb_corrected_title(query: str) -> str:
         resp = requests.get(
             url,
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-            timeout=3
+            timeout=2.5
         )
         if resp.status_code == 200:
             items = resp.json().get("d", [])
@@ -89,37 +89,38 @@ def get_imdb_corrected_title(query: str) -> str:
             if not candidates and items:
                 candidates = items
             if not candidates:
-                return query
+                return None
+
+            # If exact match exists with high popularity, no suggestion is needed
+            for c in candidates:
+                if c.get("l", "").strip().lower() == clean.lower() and c.get("rank", 9999999) < 25000:
+                    return None
 
             best_by_rank = min(candidates, key=lambda x: x.get("rank", 9999999))
-            best_rank = best_by_rank.get("rank", 9999999)
+            suggested = best_by_rank.get("l")
+            if suggested and suggested.strip().lower() != clean.lower():
+                return suggested
+    except Exception:
+        pass
 
-            # Check if exact match exists with decent rank (avoids picking sequels when original was typed)
-            for c in candidates:
-                if c.get("l", "").strip().lower() == clean.lower():
-                    if c.get("rank", 9999999) < 25000 or c.get("rank", 9999999) <= best_rank * 10:
-                        return c.get("l")
-
-            return best_by_rank.get("l") or query
-    except Exception as e:
-        print(f"[!] IMDb suggestion lookup error: {e}")
-
-    return query
+    return None
 
 def extract_language_and_title(query: str) -> tuple[str, str | None]:
     """
-    Separates language keywords from the core movie search query and
-    applies universal IMDb auto-correction to fix arbitrary misspellings.
-    e.g. 'Shashank redemption tamil' -> ('The Shawshank Redemption', 'tamil')
+    Separates language keywords from the core movie search query.
+    Leaves user's typed title 100% exact without forced auto-correction.
+    e.g. 'Shashank redemption tamil' -> ('Shashank redemption', 'tamil')
+         'Jailer' -> ('Jailer', None)
     """
-    tokens = query.strip().lower().split()
+    tokens = query.strip().split()
     detected_lang = None
     clean_tokens = []
 
     for t in tokens:
         matched = False
+        t_low = t.lower()
         for lang_name, aliases in LANGUAGE_MAP.items():
-            if t in aliases or t == lang_name:
+            if t_low in aliases or t_low == lang_name:
                 detected_lang = lang_name
                 matched = True
                 break
@@ -127,14 +128,7 @@ def extract_language_and_title(query: str) -> tuple[str, str | None]:
             clean_tokens.append(t)
 
     clean_query = " ".join(clean_tokens)
-    if not clean_query:
-        return query, detected_lang
-
-    # Universal movie auto-correction via IMDb Open API
-    corrected_title = get_imdb_corrected_title(clean_query)
-    final_title = corrected_title or clean_query
-
-    return final_title, detected_lang
+    return clean_query or query, detected_lang
 
 def get_cached_torrent(info_hash: str) -> dict | None:
     """Retrieves a cached torrent release by info hash"""

@@ -4,7 +4,7 @@ from hydrogram import Client, filters
 from hydrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import config
 from bot.utils.database import db
-from bot.utils.torrent import search_torrents, extract_language_and_title
+from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion
 from bot.handlers.start import is_authorized
 from bot.handlers.indexer import format_size
 
@@ -23,6 +23,7 @@ def render_vault_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarku
     vault_list = data["vault_results"]
     tor_count = len(data["torrent_results"])
     title = data["clean_title"]
+    suggested = data.get("suggested_title")
 
     total_items = len(vault_list)
     total_pages = max(1, math.ceil(total_items / 5))
@@ -84,6 +85,11 @@ def render_vault_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarku
     tab_btn_text = f"⚡ Switch to Cloud Torrents ({tor_count})" if tor_count > 0 else "⚡ Search Cloud Torrents"
     buttons.append([InlineKeyboardButton(tab_btn_text, callback_data=f"sw_tor_{qid}")])
 
+    # Optional "Did you mean?" suggestion
+    if suggested:
+        lines.append(f"\n💡 *Did you mean:* **{suggested}**?")
+        buttons.append([InlineKeyboardButton(f"💡 Search '{suggested[:22]}'", callback_data=f"sug_{qid}")])
+
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarkup | None]:
@@ -94,7 +100,7 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
     tor_list = data["torrent_results"]
     vault_count = len(data["vault_results"])
     title = data["clean_title"]
-    orig_query = data["query"]
+    suggested = data.get("suggested_title")
 
     total_items = len(tor_list)
     total_pages = max(1, math.ceil(total_items / 5))
@@ -104,9 +110,8 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
     start_idx = page * 5
     page_items = tor_list[start_idx:start_idx + 5]
 
-    corrected_info = f" *(Auto-corrected from '{orig_query}')*" if title.lower() != orig_query.lower() else ""
     lines = [
-        f"⚡ **Cloud Torrents for:** `{title}`{corrected_info}",
+        f"⚡ **Cloud Torrents for:** `{title}`",
         f"📄 *Page {page + 1} of {total_pages} • {total_items} releases found • 0 MB Hotspot Data*\n"
     ]
 
@@ -152,16 +157,20 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
     else:
         buttons.append([InlineKeyboardButton("📁 Vault Files (0 in library)", callback_data=f"noop_{qid}")])
 
+    # Optional "Did you mean?" suggestion
+    if suggested:
+        lines.append(f"\n💡 *Did you mean:* **{suggested}**?")
+        buttons.append([InlineKeyboardButton(f"💡 Search '{suggested[:22]}'", callback_data=f"sug_{qid}")])
+
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 @Client.on_message(filters.text & filters.private)
 async def search_handler(client: Client, message: Message):
     """
     Handles user movie searches with Tabbed Paginated View:
-    1. Resolves typos with IMDb suggestion API.
-    2. Searches MongoDB vault for instant streaming files.
-    3. If vault has files, renders Vault Tab with option to switch to Torrents.
-    4. If vault has no files, automatically scrapes 30+ healthy torrents and renders Torrents Tab.
+    1. Extracts language tokens (e.g. 'tamil') without modifying movie title.
+    2. Searches MongoDB vault and multi-engine torrents using exact user title.
+    3. Fetches optional 'Did you mean?' suggestion without forcing any rewrites.
     """
     if not is_authorized(message.from_user.id):
         return
@@ -177,25 +186,24 @@ async def search_handler(client: Client, message: Message):
             await message.reply_text("ℹ️ Please enter at least 2 characters to search.\nUsage: `/search <title>`")
         return
 
-    # Auto-resolve typos & extracted language using IMDb suggestion API
+    # Extract language tokens without auto-correcting title
     clean_title, detected_lang = extract_language_and_title(query)
     search_term = clean_title if clean_title else query
     qid = get_query_id(query)
 
+    # Optional suggestion lookup (never forced)
+    suggested = get_imdb_suggestion(search_term)
+
     status_msg = await message.reply_text(f"🔍 Searching library for `{search_term}`...")
     vault_results = await db.search_files(search_term, limit=50)
 
-    # Also search by raw query if auto-corrected title gave no results
-    if not vault_results and search_term.lower() != query.lower():
-        vault_results = await db.search_files(query, limit=50)
-
-    # If vault has results, initialize session and render Vault Tab immediately (0ms delay)
+    # If vault has results, render Vault Tab immediately (0ms delay)
     if vault_results:
-        # Pre-fetch torrent count asynchronously or on tab-switch
         torrent_results = search_torrents(query, limit=35)
         SEARCH_CACHE[qid] = {
             "query": query,
             "clean_title": search_term,
+            "suggested_title": suggested,
             "vault_results": vault_results,
             "torrent_results": torrent_results,
             "vault_page": 0,
@@ -211,6 +219,7 @@ async def search_handler(client: Client, message: Message):
         SEARCH_CACHE[qid] = {
             "query": query,
             "clean_title": search_term,
+            "suggested_title": suggested,
             "vault_results": [],
             "torrent_results": torrent_results,
             "vault_page": 0,
@@ -222,13 +231,56 @@ async def search_handler(client: Client, message: Message):
             await status_msg.edit_text(text, reply_markup=markup)
         else:
             total_vault = await db.count_files()
-            corrected_note = f"\n💡 *Auto-corrected title:* **{search_term}**" if search_term.lower() != query.lower() else ""
+            sug_text = f"\n\n💡 *Did you mean:* **{suggested}**?" if suggested else ""
             help_text = (
-                f"❌ No files found for **{query}**{corrected_note} in your Vault or Online Indexers.\n\n"
+                f"❌ No files found for **{search_term}** in your Vault or Online Indexers.{sug_text}\n\n"
                 f"📊 **Vault Status:** `{total_vault}` files currently indexed.\n"
                 f"💡 Tip: Check spelling or forward the movie video directly to the bot to index it!"
             )
-            await status_msg.edit_text(help_text)
+            buttons = []
+            if suggested:
+                buttons.append([InlineKeyboardButton(f"💡 Search '{suggested[:22]}'", callback_data=f"sug_{qid}")])
+            await status_msg.edit_text(help_text, reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
+
+@Client.on_callback_query(filters.regex(r"^sug_"))
+async def suggestion_search_callback(client: Client, callback: CallbackQuery):
+    """Executes a fresh search for the suggested IMDb title when clicked by the user"""
+    qid = callback.data.replace("sug_", "")
+    data = SEARCH_CACHE.get(qid)
+    if not data or not data.get("suggested_title"):
+        await callback.answer("Suggestion is no longer available.", show_alert=True)
+        return
+
+    new_query = data["suggested_title"]
+    await callback.answer(f"Searching for: {new_query}")
+    new_qid = get_query_id(new_query)
+
+    await callback.message.edit_text(f"🔍 Searching for suggested title `{new_query}`...")
+
+    clean_title, detected_lang = extract_language_and_title(new_query)
+    search_term = clean_title if clean_title else new_query
+    vault_results = await db.search_files(search_term, limit=50)
+    torrent_results = search_torrents(new_query, limit=35)
+
+    SEARCH_CACHE[new_qid] = {
+        "query": new_query,
+        "clean_title": search_term,
+        "suggested_title": None,
+        "vault_results": vault_results,
+        "torrent_results": torrent_results,
+        "vault_page": 0,
+        "torrent_page": 0
+    }
+
+    if vault_results:
+        text, markup = render_vault_view(new_qid, page=0)
+    elif torrent_results:
+        text, markup = render_torrent_view(new_qid, page=0)
+    else:
+        text = f"❌ No releases found for **{search_term}**."
+        markup = None
+
+    await callback.message.edit_text(text, reply_markup=markup)
 
 @Client.on_callback_query(filters.regex(r"^pv_"))
 async def paginate_vault_callback(client: Client, callback: CallbackQuery):
