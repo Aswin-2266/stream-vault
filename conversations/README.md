@@ -29,11 +29,13 @@ Keeping this in a dedicated subfolder ensures that the core codebase remains cle
   - **Public HTTPS Gateway:** Automated Cloudflare Tunnel (`bin/cloudflared.exe`) generating dynamic `*.trycloudflare.com` URLs for direct phone/VLC access.
   - **Crypto Acceleration Breakthrough:** Solved the Python 3.14 `upload.GetFile Request timed out` bottleneck by patching Hydrogram AES IGE with hardware-accelerated `cryptg` (1.78 ms vs 15s).
   - **Ecosystem Breakdown:** Documented why public channels use ad-wall links, how bots like Emma 5.0 run FSUB/token paywalls, and how StreamVault bypasses them.
+  - **Dual Cloud Leeching Engine:** Built and deployed 1-tap automated cloud torrent leeching via GitHub Actions dispatch + queue-driven Google Colab batch worker with multi-index search (YTS + Apibay).
 * **Key Artifacts Included:**
   - `hybrid-movie-bot-plan.md`: The complete technical specification and roadmap.
   - `credentials-setup-guide.md`: Step-by-step credentials walkthrough.
   - `telegram_movie_channel_and_bot_ecosystem.md`: In-depth reverse engineering of public movie channels and bot mechanics.
   - `torrent_leech_automation_plan.md`: Full specification for GitHub Actions and Google Colab zero-hotspot cloud leeching.
+  - `walkthrough.md`: Comprehensive walkthrough and verification summary for Phase 2.
   - Full transcript logs (`transcript.jsonl`, `transcript_full.jsonl`), step outputs, and all 24 user-uploaded screenshots.
 
 ---
