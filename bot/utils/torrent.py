@@ -274,7 +274,7 @@ def search_torrents(query: str, limit: int = 35) -> list[dict]:
             BITSEARCH_API_URL,
             params={"q": clean_query, "page": 1},
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-            timeout=8
+            timeout=3
         )
         if bit_resp.status_code == 200:
             items = bit_resp.json().get("results", [])
@@ -327,15 +327,15 @@ def search_torrents(query: str, limit: int = 35) -> list[dict]:
                     "has_requested_lang": has_requested_lang,
                     "source": "BitSearch"
                 })
-    except Exception as e:
-        print(f"[!] BitSearch search error: {e}")
+    except Exception:
+        pass  # Gracefully skip if ISP blocks torrent indexer domain
 
     # Query 3: YTS API (Hollywood releases)
     try:
         yts_resp = requests.get(
             YTS_API_URL,
             params={"query_term": clean_query, "limit": 20, "sort_by": "seeds"},
-            timeout=5
+            timeout=3
         )
         if yts_resp.status_code == 200:
             movies = yts_resp.json().get("data", {}).get("movies", [])
