@@ -1,4 +1,0 @@
-Command exited with code 0.
-
-Command output:
-API_ID: True API_HASH: True BOT_TOKEN: True LOG_CHANNEL_ID: True MONGO_URI: True

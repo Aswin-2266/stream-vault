@@ -26,5 +26,6 @@ cache/
 *.log
 tunnel.log
 bin/cloudflared.exe
+conversations/
 .DS_Store
 Thumbs.db

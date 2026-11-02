@@ -1,4 +1,0 @@
-Command exited with code 0.
-
-Command output:
-Initialized empty Git repository in D:/Direct_Link/.git/

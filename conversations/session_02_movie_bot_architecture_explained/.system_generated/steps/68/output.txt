@@ -1,5 +1,0 @@
-Command exited with code 0.
-
-Command output:
-Aswin-2266
-aswinmsc123@gmail.com

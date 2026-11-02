@@ -1,8 +1,0 @@
-Command exited with code 1.
-
-Command output:
-ERROR: Could not find a version that satisfies the requirement hydrogram>=0.2.1 (from versions: 0.1.3.post0, 0.1.4, 0.2.0)
-
-[notice] A new release of pip is available: 26.1.1 -> 26.2.2
-[notice] To update, run: python.exe -m pip install --upgrade pip
-ERROR: No matching distribution found for hydrogram>=0.2.1

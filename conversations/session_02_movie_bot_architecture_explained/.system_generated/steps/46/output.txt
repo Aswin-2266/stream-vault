@@ -1,1 +1,0 @@
-A1: (Recommended) Discreet & Safe (e.g., StreamVault, TeleRelay, MediaFlow-Core) — Sounds like a legitimate cloud streaming/media tool and avoids automated GitHub search flags.

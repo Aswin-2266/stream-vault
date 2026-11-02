@@ -1,1 +1,0 @@
-A1: option 1 as artifact and a file in the root folders any best folder name like docs etc

@@ -1,4 +1,0 @@
-Command exited with code 0.
-
-Command output:
-Python 3.14.5

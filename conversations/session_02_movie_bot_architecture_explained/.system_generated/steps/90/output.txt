@@ -1,5 +1,0 @@
-Command exited with code 0.
-
-Command output:
-cfeafb6 Add CONTINUE instructions and full conversation history
-cc32ac8 Initial commit: project structure, documentation, and architecture specs
