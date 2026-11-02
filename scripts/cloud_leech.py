@@ -14,7 +14,9 @@ import shutil
 import argparse
 import asyncio
 import logging
+import datetime
 import subprocess
+import traceback
 import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -42,7 +44,7 @@ def apply_crypto_patch():
     except Exception as e:
         logger.warning(f"Could not load cryptg: {e}")
 
-def run_aria2c(magnet: str, download_dir: str) -> str:
+def run_aria2c(magnet: str, download_dir: str):
     os.makedirs(download_dir, exist_ok=True)
     aria2 = shutil.which("aria2c")
     if not aria2:
@@ -70,22 +72,28 @@ def run_aria2c(magnet: str, download_dir: str) -> str:
     if res.returncode != 0:
         raise RuntimeError("Torrent download stalled or timed out (no active seeders available). Please choose a release with higher seeds.")
 
-    # Find largest video file
-    largest_file = None
-    max_size = 0
+def find_all_video_files(download_dir: str) -> list[str]:
+    """Finds all valid video files in the download directory, filtering out tiny sample clips"""
+    video_files = []
     for root, _, files in os.walk(download_dir):
         for f in files:
             p = os.path.join(root, f)
-            s = os.path.getsize(p)
-            if f.lower().endswith((".mp4", ".mkv", ".avi", ".webm", ".ts", ".m4v")) and s > max_size:
-                max_size = s
-                largest_file = p
+            if f.lower().endswith((".mp4", ".mkv", ".avi", ".webm", ".ts", ".m4v")):
+                size = os.path.getsize(p)
+                video_files.append((p, size))
 
-    if not largest_file:
-        raise FileNotFoundError("Download completed but no valid video file found.")
+    if not video_files:
+        raise FileNotFoundError("Download completed but no valid video files found.")
 
-    logger.info(f"Downloaded video file: {largest_file} ({format_size(max_size)})")
-    return largest_file
+    # Filter out sample/trailer clips (< 25 MB) if main files exist
+    main_files = [p for p, size in video_files if size >= 25 * 1024 * 1024]
+    if not main_files:
+        main_files = [p for p, size in video_files]
+
+    # Sort naturally by filename (e.g. S01E01, S01E02...)
+    main_files.sort(key=lambda x: os.path.basename(x).lower())
+    logger.info(f"Detected {len(main_files)} video file(s) to process.")
+    return main_files
 
 def split_video(file_path: str) -> list[str]:
     file_size = os.path.getsize(file_path)
@@ -131,7 +139,6 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
     api_id = int(os.getenv("API_ID", "0"))
     api_hash = os.getenv("API_HASH", "")
     bot_token = os.getenv("BOT_TOKEN", "")
-    # Ensure channel ID has negative sign for Telegram MTProto supergroup/channel format
     raw_log = os.getenv("LOG_CHANNEL_ID", "0").strip()
     if raw_log and not raw_log.startswith("-"):
         raw_log = f"-{raw_log}"
@@ -165,82 +172,90 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
     system_logs_col = db["system_logs"]
 
     download_dir = "temp_cloud_leech"
-    await bot.start()
 
+    # Step 1: Initial user notification and MongoDB start log
     try:
-        import datetime
+        await system_logs_col.insert_one({
+            "level": "INFO",
+            "source": "github_actions",
+            "module": "CloudLeech",
+            "message": f"Cloud Leech Worker started for: {title}",
+            "context": {"user_id": user_id, "task_id": task_id},
+            "created_at": datetime.datetime.utcnow()
+        })
+    except Exception:
+        pass
+
+    if user_id:
         try:
-            await system_logs_col.insert_one({
-                "level": "INFO",
-                "source": "github_actions",
-                "module": "CloudLeech",
-                "message": f"Cloud Leech Worker started for: {title}",
-                "context": {"user_id": user_id, "task_id": task_id},
-                "created_at": datetime.datetime.utcnow()
-            })
-        except Exception:
-            pass
+            await bot.start()
+            await bot.send_message(
+                chat_id=user_id,
+                text=f"⚡ **Cloud Leech Started:** `{title}`\nDownloading at gigabit cloud speeds (0 MB hotspot data)..."
+            )
+            await bot.stop()
+        except Exception as e:
+            logger.warning(f"Could not send start notification: {e}")
 
     try:
-        if user_id:
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=f"⚡ **Cloud Leech Started:** `{title}`\nDownloading at gigabit cloud speeds (0 MB hotspot data)..."
+        # Step 2: Download torrent files via aria2c
+        # (Bot is intentionally stopped during download so MTProto session timestamps never desynchronize!)
+        run_aria2c(magnet, download_dir)
+
+        # Step 3: Discover all video files (supports series packs and multi-episode torrents)
+        video_files = find_all_video_files(download_dir)
+
+        # Step 4: Fresh bot connection for synchronized, high-speed upload
+        await bot.start()
+
+        for vid_idx, video_file in enumerate(video_files, start=1):
+            file_label = f"[{vid_idx}/{len(video_files)}] " if len(video_files) > 1 else ""
+            parts = split_video(video_file)
+            is_split = len(parts) > 1
+
+            for part_idx, part_path in enumerate(parts, start=1):
+                part_name = os.path.basename(part_path)
+                part_size = os.path.getsize(part_path)
+                part_label = f" (Part {part_idx}/{len(parts)})" if is_split else ""
+
+                logger.info(f"{file_label}Uploading {part_name}{part_label} to Telegram Vault...")
+                uploaded = await bot.send_document(
+                    chat_id=log_channel_id,
+                    document=part_path,
+                    caption=f"🎬 {part_name}{part_label}"
                 )
-            except Exception:
-                pass
+                media = uploaded.video or uploaded.document
+                vault_file_id = media.file_id
+                unique_id = media.file_unique_id
 
-        # Step 1: Download
-        video_file = run_aria2c(magnet, download_dir)
+                # Save in database
+                file_doc = {
+                    "file_name": part_name,
+                    "file_size": part_size,
+                    "file_id": vault_file_id,
+                    "unique_id": unique_id,
+                    "source_chat_id": log_channel_id,
+                    "mime_type": "video/mp4",
+                    "caption": f"🎬 {part_name}"
+                }
+                await files_col.update_one({"unique_id": unique_id}, {"$set": file_doc}, upsert=True)
 
-        # Step 2: Split if needed
-        parts = split_video(video_file)
-        is_split = len(parts) > 1
-
-        for idx, part_path in enumerate(parts, start=1):
-            part_name = os.path.basename(part_path)
-            part_size = os.path.getsize(part_path)
-            label = f" (Part {idx}/{len(parts)})" if is_split else ""
-
-            logger.info(f"Uploading {part_name}{label} to Telegram Vault...")
-            uploaded = await bot.send_document(
-                chat_id=log_channel_id,
-                document=part_path,
-                caption=f"🎬 {part_name}{label}"
-            )
-            media = uploaded.video or uploaded.document
-            vault_file_id = media.file_id
-            unique_id = media.file_unique_id
-
-            # Save in database
-            file_doc = {
-                "file_name": part_name,
-                "file_size": part_size,
-                "file_id": vault_file_id,
-                "unique_id": unique_id,
-                "source_chat_id": log_channel_id,
-                "mime_type": "video/mp4",
-                "caption": f"🎬 {part_name}"
-            }
-            await files_col.update_one({"unique_id": unique_id}, {"$set": file_doc}, upsert=True)
-
-            # Deliver directly to user
-            if user_id:
-                direct_link = f"{stream_url}/stream/{unique_id}" if stream_url else f"Indexed in Vault"
-                msg_caption = (
-                    f"✅ **Leech Complete:** `{part_name}`{label}\n\n"
-                    f"📦 **Size:** `{format_size(part_size)}`\n"
-                    f"🔗 **Direct Stream / Download Link:**\n`{direct_link}`"
-                )
-                try:
-                    await bot.send_cached_media(
-                        chat_id=user_id,
-                        file_id=vault_file_id,
-                        caption=msg_caption
+                # Deliver directly to user
+                if user_id:
+                    direct_link = f"{stream_url}/stream/{unique_id}" if stream_url else "Indexed in Vault"
+                    msg_caption = (
+                        f"✅ **Leech Complete:** `{part_name}`{part_label}\n\n"
+                        f"📦 **Size:** `{format_size(part_size)}`\n"
+                        f"🔗 **Direct Stream / Download Link:**\n`{direct_link}`"
                     )
-                except Exception as e:
-                    logger.warning(f"Could not deliver cached media to user: {e}")
+                    try:
+                        await bot.send_cached_media(
+                            chat_id=user_id,
+                            file_id=vault_file_id,
+                            caption=msg_caption
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not deliver cached media to user: {e}")
 
         # Update queue task if applicable
         if task_id:
@@ -256,8 +271,8 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
                 "level": "INFO",
                 "source": "github_actions",
                 "module": "CloudLeech",
-                "message": f"Cloud Leech completed successfully for: {title}",
-                "context": {"user_id": user_id, "task_id": task_id},
+                "message": f"Cloud Leech completed successfully for: {title} ({len(video_files)} video file(s))",
+                "context": {"user_id": user_id, "task_id": task_id, "videos_count": len(video_files)},
                 "created_at": datetime.datetime.utcnow()
             })
         except Exception:
@@ -265,7 +280,6 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
 
     except Exception as e:
         logger.error(f"Cloud Leech failed: {e}", exc_info=True)
-        import traceback
         tb_str = traceback.format_exc()
         try:
             await error_logs_col.insert_one({
@@ -279,8 +293,11 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
             })
         except Exception:
             pass
+
         if user_id:
             try:
+                if not bot.is_connected:
+                    await bot.start()
                 await bot.send_message(chat_id=user_id, text=f"❌ **Cloud Leech Failed:** `{e}`")
             except Exception:
                 pass
@@ -293,7 +310,8 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
         sys.exit(1)
 
     finally:
-        await bot.stop()
+        if bot.is_connected:
+            await bot.stop()
         if os.path.exists(download_dir):
             shutil.rmtree(download_dir, ignore_errors=True)
 

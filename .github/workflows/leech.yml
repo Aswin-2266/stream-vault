@@ -1,4 +1,5 @@
 name: Cloud Torrent Leech
+run-name: "⚡ Leech: ${{ github.event.client_payload.title || github.event.inputs.title || 'Torrent Leech' }}"
 
 on:
   repository_dispatch:
