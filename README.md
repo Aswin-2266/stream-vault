@@ -19,6 +19,7 @@
 * **Direct Stream Delivery (DDL):** Built-in asynchronous HTTP server handling byte-range requests for seamless streaming in VLC, MX Player, MPV, or web browsers.
 * **Automated Cloudflare HTTPS Gateway:** Generates an encrypted `*.trycloudflare.com` public URL on startup so mobile devices stream directly without port-forwarding.
 * **Dual-Engine Cloud Leeching:** 1-tap automated torrent leeching via GitHub Actions (never leave the bot) + Queue-driven Google Colab worker (`notebooks/leech_colab.ipynb`) for batch series, all with **0 MB mobile hotspot data**.
+* **Universal IMDb Auto-Correction:** Typo-tolerant movie title resolution powered by IMDb's open suggestion API (e.g. `openhimer` ➔ `Oppenheimer`, `shashank redemption` ➔ `The Shawshank Redemption`) with smart audio language token isolation (`tamil`, `telugu`, `hindi`).
 * **Dual-Index Search Engine:** Aggregates YTS for Hollywood 720p/1080p/4K releases and Open Trackers for Indian regional/dubbed content (Tamil, Telugu, Hindi).
 * **Hardware-Accelerated Crypto:** Injects C-optimized `cryptg` AES-NI routines to eliminate MTProto timeouts, achieving <2ms decryption per chunk.
 * **Lossless Video Splitting:** Automatically slices media files exceeding 1.95 GB using `ffmpeg` stream copying (no re-encoding) to comply with Telegram's free upload limits.

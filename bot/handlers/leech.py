@@ -4,7 +4,7 @@ from hydrogram import Client, filters
 from hydrogram.types import CallbackQuery
 import config
 from bot.utils.database import db
-from bot.utils.torrent import search_torrents
+from bot.utils.torrent import search_torrents, get_cached_torrent
 
 @Client.on_callback_query(filters.regex(r"^leech_"))
 async def leech_callback_handler(client: Client, callback: CallbackQuery):
@@ -13,19 +13,30 @@ async def leech_callback_handler(client: Client, callback: CallbackQuery):
     1. If GH_TOKEN is set: Dispatches GitHub Actions Cloud Runner (0 MB mobile hotspot data).
     2. If GH_TOKEN is not set: Queues task in MongoDB Atlas for the Google Colab worker.
     """
-    parts = callback.data.split("_", 2)
-    idx = int(parts[1])
-    query = parts[2]
-
     await callback.answer("Preparing cloud leech...")
     status_msg = await callback.message.edit_text("⏳ Fetching release details...")
 
-    torrents = search_torrents(query, limit=10)
-    if not torrents or idx >= len(torrents):
-        await status_msg.edit_text("❌ Selected torrent release is no longer available. Please search again.")
+    # Fast O(1) hash lookup from in-memory cache
+    info_hash = callback.data.replace("leech_", "")
+    item = get_cached_torrent(info_hash)
+
+    # Backwards compatibility fallback for legacy leech_{idx}_{query} buttons
+    if not item:
+        parts = callback.data.split("_", 2)
+        if len(parts) >= 3:
+            try:
+                idx = int(parts[1])
+                query = parts[2]
+                torrents = search_torrents(query, limit=10)
+                if torrents and idx < len(torrents):
+                    item = torrents[idx]
+            except Exception:
+                pass
+
+    if not item:
+        await status_msg.edit_text("❌ Selected torrent session has expired or is no longer available. Please search again.")
         return
 
-    item = torrents[idx]
     title = item["title"]
     magnet = item["magnet"]
     size = item.get("size", "N/A")

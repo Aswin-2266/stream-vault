@@ -4,10 +4,14 @@ import requests
 import subprocess
 import shutil
 import urllib.parse
+import functools
 from bot.handlers.indexer import format_size
 
 YTS_API_URL = "https://yts.mx/api/v2/list_movies.json"
 APIBAY_API_URL = "https://apibay.org/q.php"
+
+# In-memory torrent release cache keyed by info_hash for instant 0ms lookups
+TORRENT_CACHE: dict[str, dict] = {}
 
 STANDARD_TRACKERS = [
     "udp://tracker.opentrackr.org:1337/announce",
@@ -27,19 +31,60 @@ LANGUAGE_MAP = {
     "english": ["english", "eng"]
 }
 
-# Common spelling / alias corrections for popular titles
-TITLE_CORRECTIONS = {
-    "shashank": "shawshank",
-    "shawshank redemption": "shawshank redemption",
-    "avatar 2": "avatar the way of water",
-    "spiderman": "spider-man",
-    "jailer": "jailer"
-}
+@functools.lru_cache(maxsize=512)
+def get_imdb_corrected_title(query: str) -> str:
+    """
+    Universal Movie/Series Auto-Correction using IMDb's open suggestion API.
+    Zero API key required; resolves arbitrary typos (e.g. 'openhimer' -> 'Oppenheimer',
+    'interstelar' -> 'Interstellar', 'shashank redemption' -> 'The Shawshank Redemption').
+    """
+    if not query or len(query.strip()) < 2:
+        return query
+
+    clean = query.strip()
+    first_char = clean[0].lower()
+    if not first_char.isalnum():
+        first_char = "a"
+    slug = clean.lower().replace(" ", "_")
+    url = f"https://v3.sg.media-imdb.com/suggestion/{first_char}/{urllib.parse.quote(slug)}.json"
+
+    try:
+        resp = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            items = resp.json().get("d", [])
+            candidates = [
+                x for x in items
+                if x.get("q") in ["feature", "TV series", "movie", "tv movie", "tv mini series", "podcastSeries"]
+            ]
+            if not candidates and items:
+                candidates = items
+            if not candidates:
+                return query
+
+            best_by_rank = min(candidates, key=lambda x: x.get("rank", 9999999))
+            best_rank = best_by_rank.get("rank", 9999999)
+
+            # Check if exact match exists with decent rank (avoids picking sequels when original was typed)
+            for c in candidates:
+                if c.get("l", "").strip().lower() == clean.lower():
+                    if c.get("rank", 9999999) < 25000 or c.get("rank", 9999999) <= best_rank * 10:
+                        return c.get("l")
+
+            return best_by_rank.get("l") or query
+    except Exception as e:
+        print(f"[!] IMDb suggestion lookup error: {e}")
+
+    return query
 
 def extract_language_and_title(query: str) -> tuple[str, str | None]:
     """
-    Separates language keywords from the core movie search query.
-    e.g. 'Shashank redemption tamil' -> ('shawshank redemption', 'tamil')
+    Separates language keywords from the core movie search query and
+    applies universal IMDb auto-correction to fix arbitrary misspellings.
+    e.g. 'Shashank redemption tamil' -> ('The Shawshank Redemption', 'tamil')
     """
     tokens = query.strip().lower().split()
     detected_lang = None
@@ -56,12 +101,18 @@ def extract_language_and_title(query: str) -> tuple[str, str | None]:
             clean_tokens.append(t)
 
     clean_query = " ".join(clean_tokens)
-    # Apply phonetic/alias corrections
-    for wrong, right in TITLE_CORRECTIONS.items():
-        if wrong in clean_query:
-            clean_query = clean_query.replace(wrong, right)
+    if not clean_query:
+        return query, detected_lang
 
-    return clean_query or query, detected_lang
+    # Universal movie auto-correction via IMDb Open API
+    corrected_title = get_imdb_corrected_title(clean_query)
+    final_title = corrected_title or clean_query
+
+    return final_title, detected_lang
+
+def get_cached_torrent(info_hash: str) -> dict | None:
+    """Retrieves a cached torrent release by info hash"""
+    return TORRENT_CACHE.get(info_hash.upper())
 
 def detect_audio_languages(title: str) -> str:
     """Detects audio languages present in release title and returns clean string"""
@@ -238,7 +289,13 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
 
     # Sort results: First prioritize requested language, then sort by seeds descending
     results.sort(key=lambda x: (x.get("has_requested_lang", False), x.get("seeds", 0)), reverse=True)
-    return results[:limit]
+    final_results = results[:limit]
+
+    # Populate in-memory cache for instant 0ms retrieval by hash
+    for item in final_results:
+        TORRENT_CACHE[item["hash"]] = item
+
+    return final_results
 
 def download_torrent_file(torrent_source: str, download_dir: str = "downloads") -> str:
     os.makedirs(download_dir, exist_ok=True)
