@@ -48,11 +48,17 @@ def run_aria2c(magnet: str, download_dir: str) -> str:
     if not aria2:
         raise RuntimeError("aria2c not installed on system.")
 
-    logger.info("Starting aria2c cloud torrent download...")
+    logger.info("Starting aria2c cloud torrent download with Tier-1 peer acceleration...")
     cmd = [
         aria2,
         "--seed-time=0",
         "--bt-stop-timeout=120",
+        "--bt-tracker-connect-timeout=10",
+        "--bt-tracker-timeout=10",
+        "--bt-max-peers=100",
+        "--enable-dht=true",
+        "--dht-listen-port=6881",
+        "--enable-peer-exchange=true",
         "--max-connection-per-server=16",
         "--split=16",
         "--min-split-size=1M",

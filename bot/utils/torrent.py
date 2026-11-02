@@ -9,17 +9,43 @@ from bot.handlers.indexer import format_size
 
 YTS_API_URL = "https://yts.mx/api/v2/list_movies.json"
 APIBAY_API_URL = "https://apibay.org/q.php"
+BITSEARCH_API_URL = "https://bitsearch.to/api/v1/search"
 
 # In-memory torrent release cache keyed by info_hash for instant 0ms lookups
 TORRENT_CACHE: dict[str, dict] = {}
 
+# 30+ Tier-1 Live BitTorrent DHT Trackers for peer acceleration
 STANDARD_TRACKERS = [
     "udp://tracker.opentrackr.org:1337/announce",
     "udp://open.stealth.si:80/announce",
-    "udp://tracker.openbittorrent.com:6969/announce",
     "udp://tracker.torrent.eu.org:451/announce",
+    "udp://open.demonii.com:1337/announce",
+    "udp://tracker.qu.ax:6969/announce",
+    "udp://open.tracker.cl:1337/announce",
+    "udp://tracker.ducks.party:1984/announce",
+    "udp://tracker.bittor.pw:1337/announce",
+    "udp://explodie.org:6969/announce",
+    "udp://tracker.tryhackx.org:6969/announce",
+    "udp://tracker.therarbg.com:6969/announce",
+    "udp://tracker.filemail.com:6969/announce",
+    "udp://tracker.moeking.me:6969/announce",
+    "udp://tracker-udp.gbitt.info:80/announce",
+    "udp://p4p.arenabg.com:1337/announce",
     "udp://opentracker.i2p.rocks:6969/announce",
-    "udp://open.demonii.com:1337/announce"
+    "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://tracker.dler.org:6969/announce",
+    "udp://bt1.archive.org:6969/announce",
+    "udp://newton.baskerville.pro:2710/announce",
+    "udp://free-tracker.zooki.xyz:6969/announce",
+    "udp://ep2020.ddns.net:6969/announce",
+    "udp://ch3oh.ru:6969/announce",
+    "udp://bubu.mapfactor.com:6969/announce",
+    "udp://amigacity.xyz:6969/announce",
+    "udp://admin.videoenpoche.info:6969/announce",
+    "udp://9.rarbg.to:2920/announce",
+    "http://tracker.openbittorrent.com:80/announce",
+    "https://tracker.tamersunion.org:443/announce",
+    "http://tracker.bt4g.com:2095/announce"
 ]
 
 LANGUAGE_MAP = {
@@ -166,12 +192,13 @@ def build_magnet(info_hash: str, display_name: str) -> str:
         params.append(("tr", tr))
     return f"magnet:?{urllib.parse.urlencode(params)}"
 
-def search_torrents(query: str, limit: int = 6) -> list[dict]:
+def search_torrents(query: str, limit: int = 35) -> list[dict]:
     """
-    Dual Search Aggregator with Smart Language Prioritization:
+    Multi-Engine Search Aggregator with Smart Language Prioritization:
     1. Extracts requested language (e.g. 'tamil').
-    2. Searches clean title on Apibay & YTS.
-    3. Ranks matching language releases at the top.
+    2. Aggregates releases across Apibay, BitSearch (TamilBlasters / regional), and YTS.
+    3. Injects 30+ Tier-1 DHT announce trackers into every magnet.
+    4. Ranks matching language releases at the top, followed by seeders count.
     """
     clean_query, requested_lang = extract_language_and_title(query)
     results = []
@@ -205,10 +232,12 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
                         size_str = "N/A"
 
                     # Calculate seed status badge
-                    if seeds >= 10:
+                    if seeds >= 15:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds >= 3:
                         seed_badge = f"⚡ {seeds} Seeds"
                     elif seeds > 0:
-                        seed_badge = f"⚠️ {seeds} Seeds (Low)"
+                        seed_badge = f"⚠️ {seeds} Seeds (Slow)"
                     else:
                         seed_badge = "❌ 0 Seeds (Dead)"
 
@@ -239,11 +268,73 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
     except Exception as e:
         print(f"[!] Apibay search error: {e}")
 
-    # Query 2: YTS API (Hollywood releases)
+    # Query 2: BitSearch API (Indian Regional, TamilBlasters, Global Trackers)
+    try:
+        bit_resp = requests.get(
+            BITSEARCH_API_URL,
+            params={"q": clean_query, "page": 1},
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            timeout=8
+        )
+        if bit_resp.status_code == 200:
+            items = bit_resp.json().get("results", [])
+            for item in items:
+                info_hash = item.get("infohash", "").upper()
+                if not info_hash or info_hash in seen_hashes:
+                    continue
+
+                try:
+                    seeds = int(item.get("seeders", 0))
+                except (ValueError, TypeError):
+                    seeds = 0
+
+                name = item.get("title", "Unknown Release")
+                try:
+                    size_bytes = int(item.get("size", 0))
+                    size_str = format_size(size_bytes)
+                except (ValueError, TypeError):
+                    size_str = "N/A"
+
+                if seeds >= 15:
+                    seed_badge = f"⚡ {seeds} Seeds"
+                elif seeds >= 3:
+                    seed_badge = f"⚡ {seeds} Seeds"
+                elif seeds > 0:
+                    seed_badge = f"⚠️ {seeds} Seeds (Slow)"
+                else:
+                    seed_badge = "❌ 0 Seeds (Dead)"
+
+                languages = detect_audio_languages(name)
+                resolution = detect_resolution(name)
+                magnet = build_magnet(info_hash, name)
+                seen_hashes.add(info_hash)
+
+                has_requested_lang = False
+                if requested_lang:
+                    aliases = LANGUAGE_MAP.get(requested_lang, [requested_lang])
+                    if any(a in name.lower() for a in aliases) or "multi" in name.lower() or "dual" in name.lower():
+                        has_requested_lang = True
+
+                results.append({
+                    "title": name,
+                    "quality": resolution,
+                    "languages": languages,
+                    "size": size_str,
+                    "seeds": seeds,
+                    "seed_badge": seed_badge,
+                    "magnet": magnet,
+                    "hash": info_hash,
+                    "has_requested_lang": has_requested_lang,
+                    "source": "BitSearch"
+                })
+    except Exception as e:
+        print(f"[!] BitSearch search error: {e}")
+
+    # Query 3: YTS API (Hollywood releases)
     try:
         yts_resp = requests.get(
             YTS_API_URL,
-            params={"query_term": clean_query, "limit": limit, "sort_by": "seeds"},
+            params={"query_term": clean_query, "limit": 20, "sort_by": "seeds"},
             timeout=5
         )
         if yts_resp.status_code == 200:
@@ -263,10 +354,12 @@ def search_torrents(query: str, limit: int = 6) -> list[dict]:
                     magnet = build_magnet(torrent_hash, full_title)
                     seen_hashes.add(torrent_hash)
 
-                    if seeds >= 10:
+                    if seeds >= 15:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds >= 3:
                         seed_badge = f"⚡ {seeds} Seeds"
                     elif seeds > 0:
-                        seed_badge = f"⚠️ {seeds} Seeds (Low)"
+                        seed_badge = f"⚠️ {seeds} Seeds (Slow)"
                     else:
                         seed_badge = "❌ 0 Seeds (Dead)"
 

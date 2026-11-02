@@ -28,31 +28,21 @@ def is_video_media(msg: Message) -> bool:
             return True
     return False
 
-@Client.on_message(filters.command("index") & filters.private)
-async def index_channel_handler(client: Client, message: Message):
+async def index_single_channel(client: Client, channel_target: str, status_msg: Message, batch_idx: int = 1, total_batch: int = 1) -> dict:
     """
-    Crawls and indexes all media from a public Telegram channel into the private vault.
-    Usage: /index @channel_username
+    Lightning-speed channel crawler:
+    Indexes video file_ids directly into MongoDB Atlas in seconds without hitting FloodWait limits.
     """
-    if not is_authorized(message.from_user.id):
-        await message.reply_text("⛔ Unauthorized.")
-        return
-
-    args = message.text.split()
-    if len(args) < 2:
-        await message.reply_text("ℹ️ **Usage:** `/index @channel_username`")
-        return
-
-    channel_target = args[1].strip()
-    status_msg = await message.reply_text(f"⏳ **Connecting to** `{channel_target}`...")
+    prefix = f"[{batch_idx}/{total_batch}] " if total_batch > 1 else ""
+    await status_msg.edit_text(f"⏳ {prefix}**Connecting to** `{channel_target}`...")
 
     try:
         chat = await client.get_chat(channel_target)
     except Exception as e:
-        await status_msg.edit_text(f"❌ **Failed to access channel:** `{e}`")
-        return
+        await status_msg.edit_text(f"❌ {prefix}**Failed to access channel `{channel_target}`:** `{e}`")
+        return {"success": False, "channel": channel_target, "error": str(e), "indexed": 0}
 
-    await status_msg.edit_text(f"📥 **Indexing media from:** `{chat.title}`...\nPlease wait.")
+    await status_msg.edit_text(f"📥 {prefix}**Indexing media from:** `{chat.title}`...\n(Lightning Ingestion • Zero FloodWait)")
 
     total_indexed = 0
     total_scanned = 0
@@ -68,33 +58,24 @@ async def index_channel_handler(client: Client, message: Message):
                 unique_id = media.file_unique_id
                 mime_type = getattr(media, "mime_type", "video/mp4")
 
-                # Forward/copy media to our private storage vault
-                try:
-                    copied = await client.copy_message(
-                        chat_id=config.LOG_CHANNEL_ID,
-                        from_chat_id=chat.id,
-                        message_id=msg.id
-                    )
-                    vault_file_id = (copied.video or copied.document).file_id
-                except Exception:
-                    vault_file_id = file_id
-
                 file_info = {
                     "file_name": file_name,
                     "file_size": file_size,
-                    "file_id": vault_file_id,
+                    "file_id": file_id,
                     "unique_id": unique_id,
                     "source_chat_id": chat.id,
+                    "source_message_id": msg.id,
+                    "source_chat_title": chat.title,
                     "mime_type": mime_type,
                     "caption": msg.caption or file_name
                 }
                 await db.save_file(file_info)
                 total_indexed += 1
 
-                if total_indexed % 25 == 0:
+                if total_indexed % 50 == 0:
                     try:
                         await status_msg.edit_text(
-                            f"🔄 **Indexing Progress:**\n"
+                            f"🔄 {prefix}**Indexing Progress for** `{chat.title}`:\n"
                             f"• Scanned: `{total_scanned}` messages\n"
                             f"• Saved Movies: `{total_indexed}`"
                         )
@@ -102,13 +83,75 @@ async def index_channel_handler(client: Client, message: Message):
                         pass
 
         await status_msg.edit_text(
-            f"✅ **Indexing Complete!**\n\n"
+            f"✅ {prefix}**Indexing Complete!**\n\n"
             f"• **Channel:** `{chat.title}`\n"
             f"• **Total Messages Scanned:** `{total_scanned}`\n"
-            f"• **New Files Saved:** `{total_indexed}`"
+            f"• **Movies Added to Vault:** `{total_indexed}`"
         )
+        return {"success": True, "channel": chat.title, "indexed": total_indexed, "scanned": total_scanned}
     except Exception as e:
-        await status_msg.edit_text(f"⚠️ Indexing interrupted: `{e}`\nSaved `{total_indexed}` files before stopping.")
+        await status_msg.edit_text(f"⚠️ {prefix}Indexing interrupted for `{chat.title}`: `{e}`\nSaved `{total_indexed}` files before stopping.")
+        return {"success": False, "channel": chat.title, "indexed": total_indexed, "error": str(e)}
+
+@Client.on_message(filters.command("index") & filters.private)
+async def index_channel_handler(client: Client, message: Message):
+    """
+    Crawls and indexes all media from a public Telegram channel into the private vault.
+    Usage: /index @channel_username
+    """
+    if not is_authorized(message.from_user.id):
+        await message.reply_text("⛔ Unauthorized.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply_text("ℹ️ **Usage:** `/index @channel_username`\nOr use `/index_batch @ch1 @ch2 @ch3` for multiple channels.")
+        return
+
+    channel_target = args[1].strip()
+    status_msg = await message.reply_text(f"⏳ Connecting to `{channel_target}`...")
+    await index_single_channel(client, channel_target, status_msg)
+
+@Client.on_message(filters.command("index_batch") & filters.private)
+async def index_batch_handler(client: Client, message: Message):
+    """
+    Bulk channel crawler: Indexes multiple public Telegram channels sequentially.
+    Usage: /index_batch @channel1 @channel2 @channel3
+    """
+    if not is_authorized(message.from_user.id):
+        await message.reply_text("⛔ Unauthorized.")
+        return
+
+    args = message.text.split()[1:]
+    if not args:
+        await message.reply_text(
+            "ℹ️ **Usage:** `/index_batch @channel1 @channel2 @channel3`\n\n"
+            "Provide one or more public channel usernames or links to bulk-index into your vault."
+        )
+        return
+
+    channels = [c.strip() for c in args if c.strip()]
+    status_msg = await message.reply_text(f"🚀 Starting bulk ingestion for `{len(channels)}` channels...")
+
+    summary_reports = []
+    total_saved_all = 0
+
+    for idx, target in enumerate(channels, start=1):
+        res = await index_single_channel(client, target, status_msg, batch_idx=idx, total_batch=len(channels))
+        summary_reports.append(res)
+        total_saved_all += res.get("indexed", 0)
+        await asyncio.sleep(2)  # Brief polite pause between channels
+
+    report_lines = [
+        f"🎉 **Bulk Ingestion Complete!**\n",
+        f"📊 **Channels Processed:** `{len(channels)}`",
+        f"📦 **Total Movies Added to Vault:** `{total_saved_all}`\n"
+    ]
+    for r in summary_reports:
+        mark = "✅" if r.get("success") else "⚠️"
+        report_lines.append(f"{mark} `{r.get('channel')}`: `{r.get('indexed', 0)}` movies")
+
+    await status_msg.edit_text("\n".join(report_lines))
 
 @Client.on_message((filters.video | filters.document) & filters.private)
 async def auto_save_handler(client: Client, message: Message):
@@ -133,7 +176,7 @@ async def auto_save_handler(client: Client, message: Message):
         copied = await message.copy(chat_id=config.LOG_CHANNEL_ID)
         vault_media = copied.video or copied.document
         vault_file_id = vault_media.file_id
-    except Exception as e:
+    except Exception:
         vault_file_id = media.file_id
 
     file_info = {

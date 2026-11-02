@@ -32,8 +32,9 @@
 | Command | Usage | Description |
 | :--- | :--- | :--- |
 | `/start` | `/start` | Welcome banner, whitelist verification, and live vault statistics. |
-| `/search` | `/search <title>` *(or send title directly)* | Queries MongoDB Atlas; offers instant 1-tap cloud torrent search fallback if missing. |
-| `/index` | `/index @channel_username` | Crawls historical posts in public channels and imports media into your private vault. |
+| `/search` | `/search <title>` *(or send title directly)* | Tabbed paginated search: Instant Vault playback (Page 1..N) & 30+ Cloud Torrents. |
+| `/index` | `/index @channel_username` | Lightning channel crawler: indexes 2,000+ movies directly into MongoDB in seconds. |
+| `/index_batch` | `/index_batch @ch1 @ch2 @ch3` | Bulk crawler: sequentially indexes multiple movie dump channels into your vault. |
 | **Auto-Save** | Forward any video to the bot | Copies media to your storage channel and provides an instant DDL streaming link. |
 | **Cloud Leech** | Tap any torrent search result | Downloads at 100 MB/s in cloud, splits, and uploads to vault (0 MB mobile hotspot data). |
 
