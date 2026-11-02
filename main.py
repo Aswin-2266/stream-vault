@@ -23,6 +23,11 @@ async def main():
 
     # Step 1: Connect to MongoDB Atlas
     db.connect()
+    await db.init_indexes()
+
+    # Step 1b: Initialize Non-blocking MongoDB Logging Pipeline
+    from bot.utils.mongo_logger import setup_mongo_logging
+    setup_mongo_logging()
 
     # Step 2: Initialize Telegram Bot Client
     bot = Client(

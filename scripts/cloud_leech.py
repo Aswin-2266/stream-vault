@@ -161,9 +161,25 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
     db = mongo["stream_vault"]
     files_col = db["files"]
     queue_col = db["leech_queue"]
+    error_logs_col = db["error_logs"]
+    system_logs_col = db["system_logs"]
 
     download_dir = "temp_cloud_leech"
     await bot.start()
+
+    try:
+        import datetime
+        try:
+            await system_logs_col.insert_one({
+                "level": "INFO",
+                "source": "github_actions",
+                "module": "CloudLeech",
+                "message": f"Cloud Leech Worker started for: {title}",
+                "context": {"user_id": user_id, "task_id": task_id},
+                "created_at": datetime.datetime.utcnow()
+            })
+        except Exception:
+            pass
 
     try:
         if user_id:
@@ -235,9 +251,34 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
                 pass
 
         logger.info("Cloud Leech completed successfully!")
+        try:
+            await system_logs_col.insert_one({
+                "level": "INFO",
+                "source": "github_actions",
+                "module": "CloudLeech",
+                "message": f"Cloud Leech completed successfully for: {title}",
+                "context": {"user_id": user_id, "task_id": task_id},
+                "created_at": datetime.datetime.utcnow()
+            })
+        except Exception:
+            pass
 
     except Exception as e:
         logger.error(f"Cloud Leech failed: {e}", exc_info=True)
+        import traceback
+        tb_str = traceback.format_exc()
+        try:
+            await error_logs_col.insert_one({
+                "level": "ERROR",
+                "source": "github_actions",
+                "module": "CloudLeech",
+                "message": str(e),
+                "traceback": tb_str,
+                "context": {"title": title, "user_id": user_id, "task_id": task_id},
+                "created_at": datetime.datetime.utcnow()
+            })
+        except Exception:
+            pass
         if user_id:
             try:
                 await bot.send_message(chat_id=user_id, text=f"❌ **Cloud Leech Failed:** `{e}`")

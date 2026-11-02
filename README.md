@@ -35,6 +35,8 @@
 | `/search` | `/search <title>` *(or send title directly)* | Tabbed paginated search: Instant Vault playback (Page 1..N) & 30+ Cloud Torrents. |
 | `/index` | `/index @channel_username` | Lightning channel crawler: indexes 2,000+ movies directly into MongoDB in seconds. |
 | `/index_batch` | `/index_batch @ch1 @ch2 @ch3` | Bulk crawler: sequentially indexes multiple movie dump channels into your vault. |
+| `/errors` | `/errors` | View recent system & cloud leech errors/warnings directly in Telegram with 1-tap clear. |
+| `/logs` | `/logs` | View recent operational system events from MongoDB Atlas. |
 | **Auto-Save** | Forward any video to the bot | Copies media to your storage channel and provides an instant DDL streaming link. |
 | **Cloud Leech** | Tap any torrent search result | Downloads at 100 MB/s in cloud, splits, and uploads to vault (0 MB mobile hotspot data). |
 

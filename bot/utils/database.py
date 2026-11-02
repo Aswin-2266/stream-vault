@@ -9,6 +9,9 @@ class Database:
         self._client = None
         self._db = None
         self._files = None
+        self._queue = None
+        self._error_logs = None
+        self._system_logs = None
 
     def connect(self):
         if not config.MONGO_URI:
@@ -19,9 +22,24 @@ class Database:
             self._db = self._client[config.DATABASE_NAME]
             self._files = self._db["files"]
             self._queue = self._db["leech_queue"]
+            self._error_logs = self._db["error_logs"]
+            self._system_logs = self._db["system_logs"]
             print("[+] Database: Connected successfully to MongoDB Atlas.")
         except Exception as e:
             print(f"[!] Database Connection Error: {e}")
+
+    async def init_indexes(self):
+        """Initializes TTL indexes (7 days) for error and system logs"""
+        if self._db is None:
+            return
+        try:
+            # 7 days in seconds: 7 * 24 * 3600 = 604800
+            if self._error_logs is not None:
+                await self._error_logs.create_index([("created_at", 1)], expireAfterSeconds=604800)
+            if self._system_logs is not None:
+                await self._system_logs.create_index([("created_at", 1)], expireAfterSeconds=604800)
+        except Exception as e:
+            print(f"[!] Warning: Could not initialize log TTL indexes: {e}")
 
     async def save_file(self, file_info: dict) -> bool:
         """
@@ -113,6 +131,72 @@ class Database:
             update_doc["error"] = error
         await self._queue.update_one({"_id": ObjectId(task_id)}, {"$set": update_doc})
         return True
+
+    async def log_error(self, level: str, module: str, message: str, traceback: str = None, context: dict = None, source: str = "main_bot") -> str:
+        """Stores a warning or error in the dedicated error_logs collection"""
+        if self._error_logs is None:
+            return ""
+        doc = {
+            "level": level.upper(),
+            "source": source,
+            "module": module,
+            "message": message,
+            "traceback": traceback,
+            "context": context or {},
+            "created_at": datetime.datetime.utcnow()
+        }
+        try:
+            res = await self._error_logs.insert_one(doc)
+            return str(res.inserted_id)
+        except Exception:
+            return ""
+
+    async def log_system(self, level: str, module: str, message: str, context: dict = None, source: str = "main_bot") -> str:
+        """Stores an operational event in the dedicated system_logs collection"""
+        if self._system_logs is None:
+            return ""
+        doc = {
+            "level": level.upper(),
+            "source": source,
+            "module": module,
+            "message": message,
+            "context": context or {},
+            "created_at": datetime.datetime.utcnow()
+        }
+        try:
+            res = await self._system_logs.insert_one(doc)
+            return str(res.inserted_id)
+        except Exception:
+            return ""
+
+    async def get_recent_errors(self, limit: int = 5) -> list[dict]:
+        """Fetches the most recent error logs sorted descending by time"""
+        if self._error_logs is None:
+            return []
+        cursor = self._error_logs.find().sort("created_at", -1).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(doc)
+        return results
+
+    async def get_recent_system_logs(self, limit: int = 5) -> list[dict]:
+        """Fetches the most recent system operational logs sorted descending by time"""
+        if self._system_logs is None:
+            return []
+        cursor = self._system_logs.find().sort("created_at", -1).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(doc)
+        return results
+
+    async def clear_error_logs(self) -> int:
+        """Clears all documents from the error_logs collection"""
+        if self._error_logs is None:
+            return 0
+        res = await self._error_logs.delete_many({})
+        return res.deleted_count
 
 # Global singleton
 db = Database()
