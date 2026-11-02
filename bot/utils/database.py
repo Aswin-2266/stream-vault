@@ -18,6 +18,7 @@ class Database:
             self._client = AsyncIOMotorClient(config.MONGO_URI, tlsCAFile=certifi.where())
             self._db = self._client[config.DATABASE_NAME]
             self._files = self._db["files"]
+            self._queue = self._db["leech_queue"]
             print("[+] Database: Connected successfully to MongoDB Atlas.")
         except Exception as e:
             print(f"[!] Database Connection Error: {e}")
@@ -78,6 +79,40 @@ class Database:
         if self._files is None:
             return 0
         return await self._files.count_documents({})
+
+    async def add_to_queue(self, task: dict) -> str:
+        """Add a download task to the cloud leech queue"""
+        if self._queue is None:
+            return ""
+        task["status"] = task.get("status", "queued")
+        task["created_at"] = datetime.datetime.utcnow()
+        res = await self._queue.insert_one(task)
+        return str(res.inserted_id)
+
+    async def get_pending_queue_tasks(self, limit: int = 10) -> list:
+        """Fetch pending tasks for the Google Colab or cloud worker"""
+        if self._queue is None:
+            return []
+        cursor = self._queue.find({"status": "queued"}).sort("created_at", 1).limit(limit)
+        tasks = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            tasks.append(doc)
+        return tasks
+
+    async def update_queue_status(self, task_id: str, status: str, error: str = None) -> bool:
+        """Update status of a queue task"""
+        if self._queue is None:
+            return False
+        from bson import ObjectId
+        update_doc = {
+            "status": status,
+            "updated_at": datetime.datetime.utcnow()
+        }
+        if error:
+            update_doc["error"] = error
+        await self._queue.update_one({"_id": ObjectId(task_id)}, {"$set": update_doc})
+        return True
 
 # Global singleton
 db = Database()

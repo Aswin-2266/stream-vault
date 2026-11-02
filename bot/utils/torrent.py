@@ -2,55 +2,128 @@ import os
 import requests
 import subprocess
 import shutil
+import urllib.parse
+from bot.handlers.indexer import format_size
 
 YTS_API_URL = "https://yts.mx/api/v2/list_movies.json"
+APIBAY_API_URL = "https://apibay.org/q.php"
 
-def search_torrents(query: str, limit: int = 5) -> list[dict]:
+STANDARD_TRACKERS = [
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://open.stealth.si:80/announce",
+    "udp://tracker.openbittorrent.com:6969/announce",
+    "udp://tracker.torrent.eu.org:451/announce",
+    "udp://opentracker.i2p.rocks:6969/announce",
+    "udp://open.demonii.com:1337/announce"
+]
+
+def build_magnet(info_hash: str, display_name: str) -> str:
+    """Constructs a standard magnet URI with announce trackers"""
+    params = [
+        ("xt", f"urn:btih:{info_hash}"),
+        ("dn", display_name)
+    ]
+    for tr in STANDARD_TRACKERS:
+        params.append(("tr", tr))
+    return f"magnet:?{urllib.parse.urlencode(params)}"
+
+def search_torrents(query: str, limit: int = 6) -> list[dict]:
     """
-    Search for high-seed movies via the YTS API.
-    Returns clean metadata: title, year, quality, size, magnet/download link, seeds.
+    Dual Search Aggregator:
+    1. YTS (Clean Hollywood releases)
+    2. Apibay / Open Trackers (Regional: Tamil, Telugu, Hindi, Multi-Audio, and Scene releases)
+    Merges, deduplicates, and sorts by seed count.
     """
     results = []
+    seen_hashes = set()
+
+    # Query 1: Apibay (The Pirate Bay / Open Trackers) - excellent regional & Indian movie coverage
     try:
-        response = requests.get(
+        resp = requests.get(
+            APIBAY_API_URL,
+            params={"q": query, "cat": "200"},  # Category 200 = Video
+            timeout=8
+        )
+        if resp.status_code == 200:
+            items = resp.json()
+            if isinstance(items, list):
+                for item in items:
+                    info_hash = item.get("info_hash", "").upper()
+                    if not info_hash or info_hash in seen_hashes or item.get("name") == "No results returned":
+                        continue
+                    
+                    try:
+                        seeds = int(item.get("seeders", 0))
+                    except (ValueError, TypeError):
+                        seeds = 0
+
+                    if seeds <= 0:
+                        continue
+
+                    try:
+                        size_bytes = int(item.get("size", 0))
+                        size_str = format_size(size_bytes)
+                    except (ValueError, TypeError):
+                        size_str = "N/A"
+
+                    name = item.get("name", "Unknown Release")
+                    magnet = build_magnet(info_hash, name)
+                    seen_hashes.add(info_hash)
+
+                    results.append({
+                        "title": name,
+                        "quality": "Multi-Audio / HD" if any(w in name.lower() for w in ["tamil", "telugu", "hindi", "multi"]) else "HD",
+                        "size": size_str,
+                        "size_bytes": size_bytes if 'size_bytes' in locals() else 0,
+                        "seeds": seeds,
+                        "magnet": magnet,
+                        "hash": info_hash,
+                        "source": "Apibay / OpenTracker"
+                    })
+    except Exception as e:
+        print(f"[!] Apibay search error: {e}")
+
+    # Query 2: YTS API (Hollywood releases, if accessible without ISP DNS blocks)
+    try:
+        yts_resp = requests.get(
             YTS_API_URL,
             params={"query_term": query, "limit": limit, "sort_by": "seeds"},
-            timeout=10
+            timeout=5
         )
-        if response.status_code == 200:
-            data = response.json()
-            movies = data.get("data", {}).get("movies", [])
+        if yts_resp.status_code == 200:
+            movies = yts_resp.json().get("data", {}).get("movies", [])
             for movie in movies:
                 title = movie.get("title")
                 year = movie.get("year")
                 for torrent in movie.get("torrents", []):
+                    torrent_hash = torrent.get("hash", "").upper()
+                    if not torrent_hash or torrent_hash in seen_hashes:
+                        continue
+
                     quality = torrent.get("quality", "720p")
                     size = torrent.get("size", "N/A")
                     seeds = torrent.get("seeds", 0)
-                    torrent_url = torrent.get("url")
-                    torrent_hash = torrent.get("hash")
-                    
-                    magnet = (
-                        f"magnet:?xt=urn:btih:{torrent_hash}&dn="
-                        f"{requests.utils.quote(f'{title} ({year}) [{quality}]')}"
-                        f"&tr=udp://open.demonii.com:1337/announce"
-                        f"&tr=udp://tracker.openbittorrent.com:80"
-                        f"&tr=udp://tracker.coppersurfer.tk:6969"
-                        f"&tr=udp://glotorrents.pw:6969/announce"
-                    )
+                    full_title = f"{title} ({year}) [{quality}]"
+                    magnet = build_magnet(torrent_hash, full_title)
+                    seen_hashes.add(torrent_hash)
 
                     results.append({
-                        "title": f"{title} ({year}) [{quality}]",
+                        "title": full_title,
                         "quality": quality,
                         "size": size,
+                        "size_bytes": 0,
                         "seeds": seeds,
                         "magnet": magnet,
-                        "torrent_url": torrent_url
+                        "hash": torrent_hash,
+                        "source": "YTS"
                     })
     except Exception as e:
-        print(f"[!] Torrent search error: {e}")
+        # Expected on Indian ISPs with DOT DNS blocks; Apibay acts as primary
+        pass
 
-    return results
+    # Sort all results by seed count descending
+    results.sort(key=lambda x: x.get("seeds", 0), reverse=True)
+    return results[:limit]
 
 def download_torrent_file(torrent_source: str, download_dir: str = "downloads") -> str:
     """
@@ -59,7 +132,6 @@ def download_torrent_file(torrent_source: str, download_dir: str = "downloads") 
     """
     os.makedirs(download_dir, exist_ok=True)
     
-    # Check if aria2c is installed
     aria2_path = shutil.which("aria2c")
     if not aria2_path:
         raise RuntimeError("aria2c executable is not installed or not in system PATH.")
@@ -86,8 +158,7 @@ def download_torrent_file(torrent_source: str, download_dir: str = "downloads") 
         for f in files:
             full_path = os.path.join(root, f)
             size = os.path.getsize(full_path)
-            # Filter for common video extensions
-            if f.lower().endswith((".mp4", ".mkv", ".avi", ".webm")) and size > max_size:
+            if f.lower().endswith((".mp4", ".mkv", ".avi", ".webm", ".ts", ".m4v")) and size > max_size:
                 max_size = size
                 largest_file = full_path
 

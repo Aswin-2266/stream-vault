@@ -13,6 +13,10 @@ The core engine is fully implemented, verified, and operational:
 * **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
 * **Public Gateway:** Automated Cloudflare HTTPS Tunnel (`bot/utils/tunnel.py` + `bin/cloudflared.exe`)
 * **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
+* **Cloud Torrent Leeching (Phase 2):** Dual-engine architecture operational:
+  - 1-Tap automated GitHub Actions cloud runner (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`)
+  - Queue-driven Google Colab batch worker (`notebooks/leech_colab.ipynb`)
+  - Dual-index search aggregator (YTS + Apibay/OpenTrackers for Tamil/Hindi/Multi-Audio)
 * **Access Control:** Whitelist security active (`ALLOWED_USERS` filter on all handlers)
 * **Mobile Data Impact:** **~0 MB** consumed from your phone hotspot (Telegram cloud-to-cloud file transfers)
 

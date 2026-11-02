@@ -40,11 +40,12 @@ async def search_handler(client: Client, message: Message):
         help_text = (
             f"❌ No files found for **{query}** in your Telegram vault.\n\n"
             f"📊 **Vault Status:** `{total_vault}` files currently indexed.\n\n"
-            "📥 **How to add movies:**\n"
-            "• **1-Click Auto-Save:** Simply forward any movie/video file to this chat.\n"
-            "• **Channel Importer:** Send `/index @channel_username` to import an entire channel library."
+            f"💡 Tap below to search high-seed cloud torrents (0 MB mobile hotspot data):"
         )
-        await status_msg.edit_text(help_text)
+        tor_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"⚡ Search Cloud Torrents for '{query[:20]}'", callback_data=f"tor_{query}")]
+        ])
+        await status_msg.edit_text(help_text, reply_markup=tor_button)
 
 @Client.on_callback_query(filters.regex(r"^get_"))
 async def deliver_file_callback(client: Client, callback: CallbackQuery):
@@ -97,9 +98,10 @@ async def torrent_search_callback(client: Client, callback: CallbackQuery):
     for i, item in enumerate(results):
         title = item["title"]
         size = item["size"]
-        btn_text = f"📥 {title} ({size})"
-        # Store index or identifier in callback
-        buttons.append([InlineKeyboardButton(btn_text, callback_data=f"leech_{i}_{query}")])
+        seeds = item.get("seeds", 0)
+        display_title = title[:30] + "..." if len(title) > 30 else title
+        btn_text = f"⚡ {display_title} [{size} • {seeds}s]"
+        buttons.append([InlineKeyboardButton(btn_text, callback_data=f"leech_{i}_{query[:25]}")] )
 
     await callback.message.edit_text(
         f"⚡ Found `{len(results)}` releases for **{query}**.\n"

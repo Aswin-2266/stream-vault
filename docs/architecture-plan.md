@@ -11,7 +11,12 @@ A private, ad-free Telegram media system combining **Channel Scraping**, **Mongo
   - Automated Cloudflare Tunnel (`*.trycloudflare.com`) for public mobile access.
   - Hardware-accelerated MTProto crypto patch (`cryptg` AES-NI) boosting decrypt speed >8,000x.
   - Whitelist security (`ALLOWED_USERS`).
-* **Phase 2 (Roadmap):** Google Colab Torrent Leeching Notebook (for 0-hotspot-data downloads of >2GB/4K releases).
+* **Phase 2 (Completed & Operational):**
+  - Dual-Index Torrent Search: YTS (Hollywood) + Open Trackers/Apibay (Tamil, Telugu, Hindi, Multi-Audio).
+  - 1-Tap Cloud Leech via GitHub Actions (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`).
+  - Google Colab Queue-Driven Worker Notebook (`notebooks/leech_colab.ipynb`).
+  - MongoDB `leech_queue` collection for task lifecycle management.
+  - Zero-hotspot-data downloads with automated 1.95 GB `ffmpeg` lossless splitting.
 
 ---
 

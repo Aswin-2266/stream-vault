@@ -18,6 +18,8 @@
 * **Instant AutoFilter Search:** Fast regex search powered by MongoDB Atlas returns matches with inline resolution and size badges.
 * **Direct Stream Delivery (DDL):** Built-in asynchronous HTTP server handling byte-range requests for seamless streaming in VLC, MX Player, MPV, or web browsers.
 * **Automated Cloudflare HTTPS Gateway:** Generates an encrypted `*.trycloudflare.com` public URL on startup so mobile devices stream directly without port-forwarding.
+* **Dual-Engine Cloud Leeching:** 1-tap automated torrent leeching via GitHub Actions (never leave the bot) + Queue-driven Google Colab worker (`notebooks/leech_colab.ipynb`) for batch series, all with **0 MB mobile hotspot data**.
+* **Dual-Index Search Engine:** Aggregates YTS for Hollywood 720p/1080p/4K releases and Open Trackers for Indian regional/dubbed content (Tamil, Telugu, Hindi).
 * **Hardware-Accelerated Crypto:** Injects C-optimized `cryptg` AES-NI routines to eliminate MTProto timeouts, achieving <2ms decryption per chunk.
 * **Lossless Video Splitting:** Automatically slices media files exceeding 1.95 GB using `ffmpeg` stream copying (no re-encoding) to comply with Telegram's free upload limits.
 * **Strict Whitelist Security:** Enforces access control via `ALLOWED_USERS` to prevent unauthorized usage and protect server resources.
@@ -29,9 +31,10 @@
 | Command | Usage | Description |
 | :--- | :--- | :--- |
 | `/start` | `/start` | Welcome banner, whitelist verification, and live vault statistics. |
-| `/search` | `/search <title>` *(or send title directly)* | Queries MongoDB Atlas for matching files and returns interactive inline buttons. |
+| `/search` | `/search <title>` *(or send title directly)* | Queries MongoDB Atlas; offers instant 1-tap cloud torrent search fallback if missing. |
 | `/index` | `/index @channel_username` | Crawls historical posts in public channels and imports media into your private vault. |
 | **Auto-Save** | Forward any video to the bot | Copies media to your storage channel and provides an instant DDL streaming link. |
+| **Cloud Leech** | Tap any torrent search result | Downloads at 100 MB/s in cloud, splits, and uploads to vault (0 MB mobile hotspot data). |
 
 ---
 

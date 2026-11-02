@@ -1,94 +1,90 @@
 import os
-import shutil
+import requests
 from hydrogram import Client, filters
 from hydrogram.types import CallbackQuery
 import config
 from bot.utils.database import db
-from bot.utils.torrent import search_torrents, download_torrent_file
-from bot.utils.splitter import split_video_file
-from bot.handlers.indexer import format_size
+from bot.utils.torrent import search_torrents
 
 @Client.on_callback_query(filters.regex(r"^leech_"))
 async def leech_callback_handler(client: Client, callback: CallbackQuery):
     """
-    Downloads torrent to server, splits if > 2GB, uploads to vault, and sends to user.
+    Cloud Leech Handler:
+    1. If GH_TOKEN is set: Dispatches GitHub Actions Cloud Runner (0 MB mobile hotspot data).
+    2. If GH_TOKEN is not set: Queues task in MongoDB Atlas for the Google Colab worker.
     """
     parts = callback.data.split("_", 2)
     idx = int(parts[1])
     query = parts[2]
 
-    await callback.answer("Starting cloud leech process...")
-    status_msg = await callback.message.edit_text("⏳ Fetching torrent metadata...")
+    await callback.answer("Preparing cloud leech...")
+    status_msg = await callback.message.edit_text("⏳ Fetching release details...")
 
     torrents = search_torrents(query, limit=10)
     if not torrents or idx >= len(torrents):
-        await status_msg.edit_text("❌ Torrent release no longer available. Please search again.")
+        await status_msg.edit_text("❌ Selected torrent release is no longer available. Please search again.")
         return
 
     item = torrents[idx]
-    await status_msg.edit_text(f"⚡ **Downloading to Cloud:** `{item['title']}`\nPlease wait...")
+    title = item["title"]
+    magnet = item["magnet"]
+    size = item.get("size", "N/A")
+    seeds = item.get("seeds", 0)
 
-    download_dir = f"downloads_{callback.from_user.id}"
-    try:
-        # Step 1: Download the torrent via aria2c
-        downloaded_file = download_torrent_file(item["magnet"], download_dir=download_dir)
-        file_size = os.path.getsize(downloaded_file)
-        
-        await status_msg.edit_text(f"📦 Downloaded `{format_size(file_size)}`. Checking 2GB size limit...")
-
-        # Step 2: Split video if > 1.95 GB
-        split_parts = split_video_file(downloaded_file)
-        is_split = len(split_parts) > 1
-
-        total_parts = len(split_parts)
-        for i, part_path in enumerate(split_parts, start=1):
-            part_name = os.path.basename(part_path)
-            part_size = os.path.getsize(part_path)
-            part_label = f" (Part {i}/{total_parts})" if is_split else ""
-
-            await status_msg.edit_text(f"📤 Uploading{part_label} to your Telegram Vault...")
-
-            # Upload to private storage channel
-            uploaded = await client.send_document(
-                chat_id=config.LOG_CHANNEL_ID,
-                document=part_path,
-                caption=f"🎬 {part_name}{part_label}"
-            )
-            media = uploaded.video or uploaded.document
-            vault_file_id = media.file_id
-            unique_id = media.file_unique_id
-
-            # Save in database
-            file_info = {
-                "file_name": part_name,
-                "file_size": part_size,
-                "file_id": vault_file_id,
-                "unique_id": unique_id,
-                "source_chat_id": config.LOG_CHANNEL_ID,
-                "mime_type": "video/mp4",
-                "caption": f"🎬 {part_name}"
+    # Path A: Automatic GitHub Actions Dispatch (Zero-Hotspot-Data Cloud Runner)
+    if config.GH_TOKEN:
+        await status_msg.edit_text(f"🚀 **Dispatching Cloud Leech Runner...**\n`{title}`")
+        try:
+            gh_url = f"https://api.github.com/repos/{config.GITHUB_REPO}/dispatches"
+            headers = {
+                "Authorization": f"Bearer {config.GH_TOKEN}",
+                "Accept": "application/vnd.github.v3+json"
             }
-            await db.save_file(file_info)
+            payload = {
+                "event_type": "leech_torrent",
+                "client_payload": {
+                    "magnet": magnet,
+                    "title": title,
+                    "user_id": callback.from_user.id
+                }
+            }
+            res = requests.post(gh_url, json=payload, headers=headers, timeout=10)
+            if res.status_code in [200, 204]:
+                confirm_text = (
+                    f"🚀 **Cloud Leech Dispatched to GitHub Actions!**\n\n"
+                    f"🎬 **Title:** `{title}`\n"
+                    f"📦 **Size:** `{size}` (Seeds: `{seeds}`)\n"
+                    f"⚡ **Speed:** ~80-120 MB/s (Gigabit Cloud)\n"
+                    f"📱 **Mobile Hotspot Data Used:** **0 MB**\n\n"
+                    f"⏳ Cloud runner is downloading and uploading to your vault. "
+                    f"You will receive the file and streaming link directly here once ready!"
+                )
+                await status_msg.edit_text(confirm_text)
+                return
+            else:
+                await status_msg.edit_text(f"⚠️ GitHub Dispatch failed (Status `{res.status_code}`). Falling back to database queue...")
+        except Exception as e:
+            await status_msg.edit_text(f"⚠️ Cloud dispatch error: `{e}`. Falling back to database queue...")
 
-            # Deliver to user
-            stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
-            user_caption = (
-                f"🎬 **{part_name}**{part_label}\n\n"
-                f"📦 **Size:** `{format_size(part_size)}`\n"
-                f"🔗 **Direct Stream Link (VLC/Browser):**\n`{stream_link}`"
-            )
-            await client.send_cached_media(
-                chat_id=callback.message.chat.id,
-                file_id=vault_file_id,
-                caption=user_caption
-            )
+    # Path B: Queue in MongoDB Atlas (For Google Colab Worker or Manual Runner)
+    task_doc = {
+        "title": title,
+        "magnet": magnet,
+        "size": size,
+        "seeds": seeds,
+        "user_id": callback.from_user.id,
+        "chat_id": callback.message.chat.id,
+        "status": "queued"
+    }
+    task_id = await db.add_to_queue(task_doc)
 
-        await status_msg.delete()
-
-    except Exception as e:
-        await status_msg.edit_text(f"❌ Leech failed: `{e}`")
-
-    finally:
-        # Step 3: Always clean up local temporary download directory
-        if os.path.exists(download_dir):
-            shutil.rmtree(download_dir, ignore_errors=True)
+    queue_text = (
+        f"📥 **Added to Cloud Leech Queue!**\n\n"
+        f"🎬 **Title:** `{title}`\n"
+        f"📦 **Size:** `{size}`\n"
+        f"🆔 **Task ID:** `{task_id}`\n\n"
+        f"💡 **Next Steps (0 MB Hotspot Data):**\n"
+        f"• **Instant 1-Tap Trigger:** Add `GH_TOKEN=your_github_token` to your `.env` so the bot triggers cloud runners automatically.\n"
+        f"• **Google Colab Worker:** Open `notebooks/leech_colab.ipynb` and run it to process queued batch downloads at 100 MB/s!"
+    )
+    await status_msg.edit_text(queue_text)

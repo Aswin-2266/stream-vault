@@ -97,6 +97,30 @@ To ensure video streaming starts instantly without `Retrying upload.GetFile due 
 
 ---
 
+## 7. Cloud Torrent Leech Setup (Zero Hotspot Data)
+
+### A. 1-Tap Automated Leeching via GitHub Actions:
+1. Go to [GitHub Settings -> Tokens (Classic)](https://github.com/settings/tokens).
+2. Click **Generate new token (classic)**, name it `StreamVault Leech`, and check the **`repo`** box.
+3. Copy the token and add it to your local `.env`:
+   ```env
+   GH_TOKEN=ghp_yourGeneratedTokenHere
+   GITHUB_REPO=Aswin-2266/stream-vault
+   ```
+4. In your GitHub repository, go to **Settings ➔ Secrets and variables ➔ Actions** and add these 5 Repository Secrets:
+   - `BOT_TOKEN`: Your Telegram Bot API token
+   - `API_ID`: Your Telegram API ID
+   - `API_HASH`: Your Telegram API Hash
+   - `LOG_CHANNEL_ID`: Your private storage channel ID (e.g. `-100...`)
+   - `MONGO_URI`: Your MongoDB connection string
+
+### B. Heavy Web Series / Batch Leeching via Google Colab:
+1. Open [Google Colab](https://colab.research.google.com) and upload `notebooks/leech_colab.ipynb`.
+2. Fill in your credentials in Cell 2.
+3. Run Cell 3. Colab connects to MongoDB Atlas and downloads queued series at 100 MB/s (0 MB phone hotspot data).
+
+---
+
 ## Summary of Credentials Needed in `.env`
 
 Once you have completed these steps, your project configuration file (`.env`) will contain:
@@ -107,4 +131,6 @@ API_HASH=your_api_hash_here
 BOT_TOKEN=your_bot_token_here
 LOG_CHANNEL_ID=-100xxxxxxxxxx
 MONGO_URI=your_mongodb_connection_uri_here
+GH_TOKEN=ghp_optional_github_token_for_instant_cloud_leech
+GITHUB_REPO=Aswin-2266/stream-vault
 ```

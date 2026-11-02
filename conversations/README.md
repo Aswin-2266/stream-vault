@@ -33,6 +33,7 @@ Keeping this in a dedicated subfolder ensures that the core codebase remains cle
   - `hybrid-movie-bot-plan.md`: The complete technical specification and roadmap.
   - `credentials-setup-guide.md`: Step-by-step credentials walkthrough.
   - `telegram_movie_channel_and_bot_ecosystem.md`: In-depth reverse engineering of public movie channels and bot mechanics.
+  - `torrent_leech_automation_plan.md`: Full specification for GitHub Actions and Google Colab zero-hotspot cloud leeching.
   - Full transcript logs (`transcript.jsonl`, `transcript_full.jsonl`), step outputs, and all 24 user-uploaded screenshots.
 
 ---

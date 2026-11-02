@@ -36,6 +36,10 @@ STREAM_URL = os.getenv("STREAM_URL", f"http://localhost:{PORT}").rstrip("/")
 raw_channels = os.getenv("CHANNELS_TO_INDEX", "")
 CHANNELS_TO_INDEX = [c.strip() for c in raw_channels.split(",") if c.strip()]
 
+# --- GitHub Actions Cloud Leech Settings ---
+GH_TOKEN = os.getenv("GH_TOKEN", "")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "Aswin-2266/stream-vault")
+
 # Validation helper
 def validate_config():
     missing = []
