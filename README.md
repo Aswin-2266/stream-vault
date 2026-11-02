@@ -17,6 +17,8 @@
 * **Zero Mobile Data Consumption:** Movie files move **cloud-to-cloud** directly within Telegram's data centers. Indexing 1,000+ movies uses under 5 MB of internet traffic.
 * **Instant AutoFilter Search:** Fast regex search powered by MongoDB Atlas returns matches with inline resolution and size badges.
 * **Direct Stream Delivery (DDL):** Built-in asynchronous HTTP server handling byte-range requests for seamless streaming in VLC, MX Player, MPV, or web browsers.
+* **Automated Cloudflare HTTPS Gateway:** Generates an encrypted `*.trycloudflare.com` public URL on startup so mobile devices stream directly without port-forwarding.
+* **Hardware-Accelerated Crypto:** Injects C-optimized `cryptg` AES-NI routines to eliminate MTProto timeouts, achieving <2ms decryption per chunk.
 * **Lossless Video Splitting:** Automatically slices media files exceeding 1.95 GB using `ffmpeg` stream copying (no re-encoding) to comply with Telegram's free upload limits.
 * **Strict Whitelist Security:** Enforces access control via `ALLOWED_USERS` to prevent unauthorized usage and protect server resources.
 

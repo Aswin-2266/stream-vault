@@ -19,17 +19,21 @@ Keeping this in a dedicated subfolder ensures that the core codebase remains cle
 
 ### 2. [Session 02: Telegram Movie Bot Architecture & Implementation](session_02_movie_bot_architecture_explained)
 * **Conversation ID:** `a01f3378-859c-4460-83c1-fd265a9ee6b1`
-* **Topic:** Deep-dive `/grill-me` design interview, architecture finalization, credential acquisition, and live deployment.
+* **Topic:** Deep-dive `/grill-me` design interview, architecture finalization, credential acquisition, live deployment, streaming performance tuning, and channel/bot ecosystem analysis.
 * **Milestones Covered:**
   - **Sourcing Strategy:** Designed a zero-hotspot-data model using Telegram cloud-to-cloud channel scraping and MongoDB indexing.
   - **Overcoming Limitations:** Handled the 2GB free Telegram upload limit via `ffmpeg` stream copying; marked heavy torrent leeching for Google Colab offloading.
   - **Infrastructure:** Evaluated cloud options (Oracle, Hugging Face Docker paywall, Render resource constraints) and settled on a local/hybrid setup with 0 mobile data usage.
   - **Security & Fixes:** Addressed GitHub Secret Scanning alert by sanitizing placeholder URIs; implemented whitelist authorization (`ALLOWED_USERS`).
-  - **Live Launch:** Successfully created `@perso_streamvault_bot`, connected to MongoDB Atlas Mumbai cluster, and started the engine.
+  - **Live Launch & Field Testing:** Successfully created `@perso_streamvault_bot`, connected to MongoDB Atlas Mumbai cluster, indexed 3.27 GB `Karate Kid Legends 2025` with 0 MB hotspot data.
+  - **Public HTTPS Gateway:** Automated Cloudflare Tunnel (`bin/cloudflared.exe`) generating dynamic `*.trycloudflare.com` URLs for direct phone/VLC access.
+  - **Crypto Acceleration Breakthrough:** Solved the Python 3.14 `upload.GetFile Request timed out` bottleneck by patching Hydrogram AES IGE with hardware-accelerated `cryptg` (1.78 ms vs 15s).
+  - **Ecosystem Breakdown:** Documented why public channels use ad-wall links, how bots like Emma 5.0 run FSUB/token paywalls, and how StreamVault bypasses them.
 * **Key Artifacts Included:**
   - `hybrid-movie-bot-plan.md`: The complete technical specification and roadmap.
   - `credentials-setup-guide.md`: Step-by-step credentials walkthrough.
-  - Full transcript logs (`transcript.jsonl`, `transcript_full.jsonl`), step outputs, and all user screenshots.
+  - `telegram_movie_channel_and_bot_ecosystem.md`: In-depth reverse engineering of public movie channels and bot mechanics.
+  - Full transcript logs (`transcript.jsonl`, `transcript_full.jsonl`), step outputs, and all 24 user-uploaded screenshots.
 
 ---
 

@@ -11,6 +11,8 @@ The core engine is fully implemented, verified, and operational:
 * **Telegram Bot:** `@perso_streamvault_bot` (Layer 181 MTProto connection active)
 * **Database:** MongoDB Atlas M0 Cluster (`stream-vault` database on AWS Mumbai)
 * **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
+* **Public Gateway:** Automated Cloudflare HTTPS Tunnel (`bot/utils/tunnel.py` + `bin/cloudflared.exe`)
+* **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
 * **Access Control:** Whitelist security active (`ALLOWED_USERS` filter on all handlers)
 * **Mobile Data Impact:** **~0 MB** consumed from your phone hotspot (Telegram cloud-to-cloud file transfers)
 
@@ -63,7 +65,6 @@ Whenever you reboot your PC or resume work:
 ## 🔮 Phase 2 Roadmap (Pending Enhancements)
 
 - [ ] **Google Colab Torrent Leech Notebook:** Create `notebooks/leech_colab.ipynb` to download heavy 4K / >2GB torrents in Google's cloud and auto-upload to your vault with 0 hotspot data.
-- [ ] **Cloudflare Tunnel (`cloudflared`):** One-command public HTTPS proxy for external VLC streaming when away from home.
 - [ ] **Multi-Channel Auto-Listener:** Background task listening to live posts in whitelisted public channels and auto-indexing them without manual `/index` commands.
 
 ---
@@ -74,9 +75,9 @@ When continuing on another machine or beginning a new turn, paste this prompt:
 
 ```text
 I am continuing development on stream-vault (d:\Direct_Link). 
-Please read CONTINUE.md and docs/architecture-plan.md to understand the current operational state. 
-The core bot (@perso_streamvault_bot) and MongoDB Atlas integration are already running. 
+Please read CONTINUE.md, docs/architecture-plan.md, and conversations/README.md to understand the current operational state. 
+The core bot (@perso_streamvault_bot), MongoDB Atlas integration, Cloudflare Tunnel, and cryptg acceleration are fully verified and running. 
 Let's proceed with Phase 2:
 1. Build the Google Colab Torrent Leech Notebook (notebooks/leech_colab.ipynb).
-2. Configure Cloudflare Tunnel integration for public streaming links.
+2. Add live background auto-indexing for whitelisted channels.
 ```

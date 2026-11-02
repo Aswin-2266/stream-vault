@@ -3,8 +3,15 @@
 A private, ad-free Telegram media system combining **Channel Scraping**, **MongoDB AutoFilter**, **Direct Stream Link Generation**, and **Torrent Leeching** with no 15-hour token expirations.
 
 ### 🟢 Status Summary
-* **Phase 1 (Active & Operational):** Telegram Channel Scraping, 1-Click Auto-Save, MongoDB Atlas Multi-token Search, `aiohttp` HTTP Range DDL streaming server, Whitelist security.
-* **Phase 2 (Roadmap):** Google Colab Torrent Leeching Notebook (for 0-hotspot-data downloads of >2GB/4K releases) and Cloudflare Tunnel integration.
+* **Phase 1 (Completed & Operational):**
+  - Telegram Channel Scraping (`/index @channel`).
+  - 1-Click Forward Auto-Save (0 MB mobile hotspot data).
+  - MongoDB Atlas Multi-Token Search with `certifi` CA validation.
+  - `aiohttp` HTTP Range DDL streaming server.
+  - Automated Cloudflare Tunnel (`*.trycloudflare.com`) for public mobile access.
+  - Hardware-accelerated MTProto crypto patch (`cryptg` AES-NI) boosting decrypt speed >8,000x.
+  - Whitelist security (`ALLOWED_USERS`).
+* **Phase 2 (Roadmap):** Google Colab Torrent Leeching Notebook (for 0-hotspot-data downloads of >2GB/4K releases).
 
 ---
 

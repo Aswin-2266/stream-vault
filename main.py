@@ -1,5 +1,10 @@
 import asyncio
 import logging
+from bot.utils.crypto_patch import apply_crypto_patch
+
+# Apply cryptg acceleration before importing Hydrogram components
+apply_crypto_patch()
+
 from hydrogram import Client, idle
 import config
 from bot.utils.database import db

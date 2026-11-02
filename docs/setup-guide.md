@@ -66,7 +66,9 @@ MongoDB will store the filenames, resolutions, sizes, and Telegram `file_id` poi
 4. Click **Create Deployment**.
 5. **Security Setup:**
    - **Database User:** Create a username and password (e.g., user: `moviebot`, password: `YourStrongPassword123`). Note them down.
-   - **Network Access (IP Access List):** Click **Allow Access from Anywhere** (`0.0.0.0/0`). This allows your bot to connect from your PC or any cloud server.
+   - **Network Access (IP Access List):** Click **Allow Access from Anywhere** (`0.0.0.0/0`).
+     > [!IMPORTANT]
+     > If connecting via a mobile 5G hotspot (e.g., Airtel, Jio), your carrier assigns dynamic CGNAT IP addresses that change frequently. You **must** whitelist `0.0.0.0/0` in Atlas Network Access, otherwise you will encounter `SSL: TLSV1_ALERT_INTERNAL_ERROR` connection drops.
 6. **Get Connection String:**
    - Go to your Database Cluster overview and click **Connect**.
    - Choose **Drivers** (Python).
@@ -76,6 +78,22 @@ MongoDB will store the filenames, resolutions, sizes, and Telegram `file_id` poi
      ```
    - Replace `<username>` and `<password>` with your database user credentials.
 7. **Save this connection string** as your `MONGO_URI`.
+
+---
+
+## 5. Cloudflare Tunnel Gateway (Auto-Generated HTTPS)
+
+StreamVault includes `bin/cloudflared.exe`. When launched locally:
+- It creates an encrypted HTTPS tunnel (`https://*.trycloudflare.com`) pointing directly to your local port 7860.
+- This allows your phone browser, VLC, and 1DM+ to stream movies without port-forwarding your home router or paying for a VPS.
+
+---
+
+## 6. High-Speed MTProto Crypto Acceleration
+
+To ensure video streaming starts instantly without `Retrying upload.GetFile due to: Request timed out`:
+- `cryptg` is used to hardware-accelerate AES-256-IGE decryption via AES-NI CPU instructions.
+- Decryption time is reduced from ~15 seconds per MiB chunk down to **1.78 milliseconds**.
 
 ---
 

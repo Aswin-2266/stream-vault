@@ -5,12 +5,28 @@ import config
 from bot.utils.database import db
 from bot.handlers.start import is_authorized
 
+VIDEO_EXTENSIONS = (".mkv", ".mp4", ".avi", ".mov", ".flv", ".webm", ".ts", ".m4v", ".wmv", ".3gp")
+
 def format_size(bytes_size: int) -> str:
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if bytes_size < 1024.0:
             return f"{bytes_size:.2f} {unit}"
         bytes_size /= 1024.0
     return f"{bytes_size:.2f} PB"
+
+def is_video_media(msg: Message) -> bool:
+    """Helper to detect if a message contains video media, whether sent as Video or Document"""
+    if msg.video:
+        return True
+    if msg.document:
+        mime = (msg.document.mime_type or "").lower()
+        if "video" in mime or "octet-stream" in mime or "matroska" in mime:
+            fn = (msg.document.file_name or "").lower()
+            if fn.endswith(VIDEO_EXTENSIONS) or "video" in mime or "matroska" in mime:
+                return True
+        elif (msg.document.file_name or "").lower().endswith(VIDEO_EXTENSIONS):
+            return True
+    return False
 
 @Client.on_message(filters.command("index") & filters.private)
 async def index_channel_handler(client: Client, message: Message):
@@ -44,8 +60,8 @@ async def index_channel_handler(client: Client, message: Message):
     try:
         async for msg in client.get_chat_history(chat.id):
             total_scanned += 1
-            media = msg.video or msg.document
-            if media and (msg.video or (msg.document and msg.document.mime_type and "video" in msg.document.mime_type)):
+            if is_video_media(msg):
+                media = msg.video or msg.document
                 file_name = getattr(media, "file_name", None) or f"video_{msg.id}.mp4"
                 file_size = media.file_size
                 file_id = media.file_id
@@ -102,13 +118,10 @@ async def auto_save_handler(client: Client, message: Message):
     if not is_authorized(message.from_user.id):
         return
 
-    media = message.video or message.document
-    if not media:
+    if not is_video_media(message):
         return
 
-    if message.document and not (media.mime_type and "video" in media.mime_type):
-        return  # skip non-video documents
-
+    media = message.video or message.document
     file_name = getattr(media, "file_name", None) or f"video_{message.id}.mp4"
     file_size = media.file_size
     unique_id = media.file_unique_id
