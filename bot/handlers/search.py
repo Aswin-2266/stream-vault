@@ -154,7 +154,7 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
 
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
-@Client.on_message(filters.text & filters.private & ~filters.command(["start", "help", "index", "index_batch"]))
+@Client.on_message(filters.text & filters.private)
 async def search_handler(client: Client, message: Message):
     """
     Handles user movie searches with Tabbed Paginated View:
@@ -166,9 +166,15 @@ async def search_handler(client: Client, message: Message):
     if not is_authorized(message.from_user.id):
         return
 
-    query = message.text.replace("/search", "").strip()
+    text = (message.text or "").strip()
+    # Ignore all slash commands (/errors, /logs, /start, /index, etc.) unless explicitly /search
+    if text.startswith("/") and not text.lower().startswith("/search"):
+        return
+
+    query = text.replace("/search", "", 1).strip()
     if len(query) < 2:
-        await message.reply_text("ℹ️ Please enter at least 2 characters to search.")
+        if text.lower().startswith("/search"):
+            await message.reply_text("ℹ️ Please enter at least 2 characters to search.\nUsage: `/search <title>`")
         return
 
     # Auto-resolve typos & extracted language using IMDb suggestion API
