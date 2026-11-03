@@ -1,3 +1,4 @@
+import os
 import re
 import math
 import aiohttp
@@ -11,6 +12,9 @@ bot_instance = None
 def set_bot_instance(bot):
     global bot_instance
     bot_instance = bot
+
+def get_bot_instance():
+    return bot_instance
 
 @routes.get("/")
 async def root_handler(request):
@@ -55,6 +59,67 @@ async def stream_handler(request):
     file_name = file_doc.get("file_name", "video.mp4")
     mime_type = file_doc.get("mime_type", "video/mp4")
     tg_file_id = file_doc.get("file_id", file_id)
+    local_path = file_doc.get("local_path")
+
+    # Local Disk Fast-Stream Acceleration (Zero network lag if cached on Oracle VM)
+    if local_path and os.path.isfile(local_path):
+        actual_size = os.path.getsize(local_path)
+        range_header = request.headers.get("Range")
+        CHUNK_SIZE = 1024 * 1024
+
+        if not range_header:
+            headers = {
+                "Content-Type": mime_type,
+                "Content-Length": str(actual_size),
+                "Content-Disposition": f'inline; filename="{file_name}"',
+                "Accept-Ranges": "bytes"
+            }
+            response = web.StreamResponse(status=200, headers=headers)
+            await response.prepare(request)
+            try:
+                with open(local_path, "rb") as f:
+                    while True:
+                        chunk = f.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        await response.write(chunk)
+            except (aiohttp.client_exceptions.ClientConnectionResetError, ConnectionResetError):
+                pass
+            return response
+
+        range_match = re.match(r"bytes=(\d+)-(\d*)", range_header)
+        if not range_match:
+            return web.Response(status=416, text="Invalid Range header")
+
+        start_byte = int(range_match.group(1))
+        end_byte = int(range_match.group(2)) if range_match.group(2) else actual_size - 1
+        if end_byte >= actual_size:
+            end_byte = actual_size - 1
+
+        content_length = (end_byte - start_byte) + 1
+        headers = {
+            "Content-Type": mime_type,
+            "Content-Range": f"bytes {start_byte}-{end_byte}/{actual_size}",
+            "Content-Length": str(content_length),
+            "Content-Disposition": f'inline; filename="{file_name}"',
+            "Accept-Ranges": "bytes"
+        }
+        response = web.StreamResponse(status=206, headers=headers)
+        await response.prepare(request)
+        try:
+            with open(local_path, "rb") as f:
+                f.seek(start_byte)
+                bytes_left = content_length
+                while bytes_left > 0:
+                    read_len = min(CHUNK_SIZE, bytes_left)
+                    chunk = f.read(read_len)
+                    if not chunk:
+                        break
+                    await response.write(chunk)
+                    bytes_left -= len(chunk)
+        except (aiohttp.client_exceptions.ClientConnectionResetError, ConnectionResetError):
+            pass
+        return response
 
     range_header = request.headers.get("Range")
     CHUNK_SIZE = 1024 * 1024  # Hydrogram chunk size is 1 MiB

@@ -4,7 +4,7 @@ from hydrogram import Client, filters
 from hydrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import config
 from bot.utils.database import db
-from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion
+from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion, get_cached_torrent
 from bot.handlers.start import is_authorized
 from bot.handlers.indexer import format_size
 
@@ -132,8 +132,8 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
             f"   📦 **Specs:** `{quality}` • `{size}` • {seed_badge}\n"
         )
 
-        btn_label = f"⚡ #{i} ({quality})"
-        button_row.append(InlineKeyboardButton(btn_label, callback_data=f"leech_{info_hash}"))
+        btn_label = f"🎬 #{i} ({quality})"
+        button_row.append(InlineKeyboardButton(btn_label, callback_data=f"sel_tor_{info_hash}_{qid}_{page}"))
         if len(button_row) == 2:
             buttons.append(button_row)
             button_row = []
@@ -301,6 +301,84 @@ async def paginate_torrents_callback(client: Client, callback: CallbackQuery):
     await callback.answer()
     text, markup = render_torrent_view(qid, page=page)
     await callback.message.edit_text(text, reply_markup=markup)
+
+@Client.on_callback_query(filters.regex(r"^sel_tor_"))
+async def select_torrent_callback(client: Client, callback: CallbackQuery):
+    """
+    Renders the In-Place Details & Gateway view after user taps a release from search results.
+    Displays:
+    1. Full Release specs, seeders, audio.
+    2. 1-Tap copyable magnet code block.
+    3. Dual Leech buttons (Oracle VM vs GitHub Actions).
+    4. '◀️ Back to Search Results' button to restore the search list.
+    """
+    parts = callback.data.split("_")
+    # callback format: sel_tor_{info_hash}_{qid}_{page}
+    if len(parts) >= 5:
+        info_hash = parts[2]
+        qid = parts[3]
+        try:
+            page = int(parts[4])
+        except ValueError:
+            page = 0
+    elif len(parts) >= 3:
+        info_hash = parts[2]
+        qid = ""
+        page = 0
+    else:
+        await callback.answer("Invalid release selection.", show_alert=True)
+        return
+
+    item = get_cached_torrent(info_hash)
+    if not item and qid and qid in SEARCH_CACHE:
+        for t in SEARCH_CACHE[qid].get("torrent_results", []):
+            if t.get("hash") == info_hash:
+                item = t
+                break
+
+    if not item:
+        await callback.answer("Release details expired. Please search again.", show_alert=True)
+        return
+
+    await callback.answer()
+
+    title = item.get("title", "Unknown Release")
+    quality = item.get("quality", "HD")
+    languages = item.get("languages", "Original Audio")
+    size = item.get("size", "N/A")
+    seeds = item.get("seeds", 0)
+    seed_badge = item.get("seed_badge", f"{seeds} Seeds")
+    magnet = item.get("magnet", "")
+
+    detail_lines = [
+        f"🎬 **Release Details & Leech Gateway**\n",
+        f"📽️ **Title:** `{title}`",
+        f"📦 **Size:** `{size}` • 🌱 **Seeds:** {seed_badge}",
+        f"🔊 **Audio:** `{languages}` • `{quality}`\n",
+        f"📋 **Magnet Link (Tap below to copy for external apps):**",
+        f"`{magnet}`\n",
+        f"⚡ **Choose Leech Engine (0 MB Mobile Hotspot Data):**",
+        f"• **Oracle VM:** High-speed P2P, unblocked ports, direct Indian swarms.",
+        f"• **GitHub Actions:** Microsoft Azure gigabit datacenter runner."
+    ]
+
+    action_buttons = [
+        [
+            InlineKeyboardButton("⚡ Leech (Oracle VM)", callback_data=f"leech_vm_{info_hash}"),
+            InlineKeyboardButton("☁️ Leech (GitHub)", callback_data=f"leech_gh_{info_hash}")
+        ]
+    ]
+
+    if qid:
+        action_buttons.append([
+            InlineKeyboardButton("◀️ Back to Search Results", callback_data=f"pt_{page}_{qid}")
+        ])
+
+    await callback.message.edit_text(
+        "\n".join(detail_lines),
+        reply_markup=InlineKeyboardMarkup(action_buttons),
+        disable_web_page_preview=True
+    )
 
 @Client.on_callback_query(filters.regex(r"^sw_tor_"))
 async def switch_to_torrents_callback(client: Client, callback: CallbackQuery):

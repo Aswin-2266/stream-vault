@@ -46,6 +46,12 @@ CHANNELS_TO_INDEX = [c.strip() for c in raw_channels.split(",") if c.strip()]
 GH_TOKEN = os.getenv("GH_TOKEN", "")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "Aswin-2266/stream-vault")
 
+# --- Oracle VM Native Leech & Storage Retention Settings ---
+MAX_PARALLEL_DOWNLOADS = int(os.getenv("MAX_PARALLEL_DOWNLOADS", "3"))
+STORAGE_RETENTION_DAYS = int(os.getenv("STORAGE_RETENTION_DAYS", "3"))
+MAX_DISK_USAGE_PERCENT = int(os.getenv("MAX_DISK_USAGE_PERCENT", "75"))
+DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads")
+
 # Validation helper
 def validate_config():
     missing = []

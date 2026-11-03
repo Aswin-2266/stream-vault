@@ -16,12 +16,14 @@ The core engine is fully implemented, verified, and operational:
 * **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
 * **Public Gateway:** Direct Public IPv4 streaming on `http://140.245.193.224:7860`
 * **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` and `tgcrypto` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
-* **Cloud Torrent Leeching (Phase 2 & 3):** Dual-engine architecture operational:
-  - 1-Tap automated GitHub Actions cloud runner (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`)
-  - **Instant Torrent Finder:** Tap any release button to display the full release details and a 1-tap copyable Magnet link (`magnet:?xt=...`) directly in chat for external apps (Flud, 1DM, qBittorrent)
-  - **Live Progress Updates:** Real-time editing of the Telegram status message at quarter milestones (25%, 50%, 75%, 100%) and 5s throttled updates with visual progress bars (`[███████░░░░░░░░] 50%`) and gigabit speed tracking
-  - Queue-driven Google Colab batch worker (`notebooks/leech_colab.ipynb`)
-  - Regional & Indian Torrent Aggregator (Torrentio Stremio Streams, BitSearch, Apibay, YTS) with language audio detection
+* **Cloud Torrent Leeching (Phase 2, 3 & 4):**
+  - **Native Oracle VM Leech Engine (`bot/utils/vm_leech.py`):** Runs parallel downloads (up to 3 concurrent) directly on the Oracle VM with unblocked P2P ports (`50101-50109`), connecting to Indian residential seeders (Jio/Airtel CGNAT) with zero stalls.
+  - **2-Step Release Details Gateway:** Clean search results list (`[🎬 #1 (1080p)]`) transitions in-place to the Details Gateway with 1-tap copyable magnet block, `[⚡ Leech (Oracle VM)]`, `[☁️ Leech (GitHub)]`, and `[◀️ Back to Search Results]`.
+  - **Live Progress Updates:** Real-time editing of the Telegram status message at quarter milestones (25%, 50%, 75%, 100%) and 5s throttled updates with visual progress bars (`[███████░░░░░░░░] 50%`) and gigabit speed tracking.
+  - **Automated Rolling FIFO Cache (`bot/utils/cleaner.py`):** Caches completed videos locally for 3 days for zero-buffering HTTP Range-Request streaming on port `7860`. Files older than 3 days or when disk $>75\%$ are automatically purged, while remaining permanently safe in the Telegram Vault channel.
+  - **GitHub Actions Fallback:** Dedicated cloud runner (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`) available via the `[☁️ Leech (GitHub)]` button.
+  - **Queue-driven Google Colab Worker:** (`notebooks/leech_colab.ipynb`).
+  - **Regional & Indian Torrent Aggregator:** Torrentio Stremio Streams, BitSearch, Apibay, YTS with audio language detection.
 * **Access Control:** Whitelist security active (`ALLOWED_USERS` filter on all handlers)
 * **Mobile Data Impact:** **~0 MB** consumed from your phone hotspot (Telegram cloud-to-cloud file transfers)
 
