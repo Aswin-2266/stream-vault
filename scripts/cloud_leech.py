@@ -78,15 +78,18 @@ def send_telegram_progress(
         status_line = f"<code>[{bar}] {pct}%</code>\n{status_text}"
 
     html_text = (
-        f"🧲 <b>Torrent Finder &amp; Cloud Leech</b>\n\n"
+        f"☁️ <b>GitHub Actions Cloud Leech</b>\n\n"
         f"🎬 <b>Title:</b> <code>{html.escape(title)}</code>\n"
         f"📦 <b>Size:</b> <code>{html.escape(str(size))}</code> • 🌱 <b>Seeds:</b> <code>{html.escape(str(seeds))}</code>\n\n"
-        f"📋 <b>Magnet Link (Tap below to copy for external apps):</b>\n"
-        f"<code>{html.escape(magnet)}</code>\n\n"
-        f"⚡ <b>Cloud Leech Progress:</b>\n"
+        f"🚀 <b>Live Leech Status:</b>\n"
         f"{status_line}\n"
+        f"🌐 <b>Server:</b> Azure Cloud Runner\n"
         f"📱 <b>Mobile Hotspot Data Used:</b> <b>0 MB</b>"
     )
+
+    # Extract hash for the Copy Magnet button
+    hash_m = re.search(r"urn:btih:([a-zA-Z0-9]+)", magnet)
+    info_hash = hash_m.group(1).upper() if hash_m else ""
 
     url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
     payload = {
@@ -96,6 +99,12 @@ def send_telegram_progress(
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
+    if info_hash:
+        payload["reply_markup"] = {
+            "inline_keyboard": [
+                [{"text": "📋 Copy Magnet Link", "callback_data": f"copy_mag_{info_hash}"}]
+            ]
+        }
     try:
         requests.post(url, json=payload, timeout=5)
     except Exception as e:

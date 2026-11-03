@@ -369,8 +369,6 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
         f"📽️ **Title:** `{title}`",
         f"📦 **Size:** `{size}` • 🌱 **Seeds:** {seed_badge}",
         f"🔊 **Audio:** `{languages}` • `{quality}`\n",
-        f"📋 **Magnet Link (Tap below to copy for external apps):**",
-        f"`{magnet}`\n",
         f"⚡ **Choose Leech Engine (0 MB Mobile Hotspot Data):**",
         f"• **Oracle VM:** High-speed P2P, unblocked ports, direct Indian swarms.",
         f"• **GitHub Actions:** Microsoft Azure gigabit datacenter runner."
@@ -380,6 +378,9 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
         [
             InlineKeyboardButton("⚡ Leech (Oracle VM)", callback_data=f"leech_vm_{info_hash}"),
             InlineKeyboardButton("☁️ Leech (GitHub)", callback_data=f"leech_gh_{info_hash}")
+        ],
+        [
+            InlineKeyboardButton("📋 Copy Magnet Link", callback_data=f"copy_mag_{info_hash}")
         ]
     ]
 
@@ -393,6 +394,29 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(action_buttons),
         disable_web_page_preview=True
     )
+
+@Client.on_callback_query(filters.regex(r"^copy_mag_"))
+async def copy_magnet_callback(client: Client, callback: CallbackQuery):
+    """
+    Sends the 1-tap copyable magnet link as a clean standalone message.
+    Tapping the monospace code block in Telegram copies directly to the device clipboard.
+    """
+    info_hash = callback.data.replace("copy_mag_", "")
+    item = get_cached_torrent(info_hash)
+    if not item:
+        await callback.answer("Magnet link expired. Please search again.", show_alert=True)
+        return
+
+    await callback.answer("Magnet link sent below!")
+    magnet = item.get("magnet", "")
+    title = item.get("title", "Torrent Release")
+
+    msg_text = (
+        f"📋 **Tap below to copy Magnet Link:**\n"
+        f"`{magnet}`\n\n"
+        f"💡 *Tap the code box above to copy instantly to clipboard for 1DM, Flud, or qBittorrent.*"
+    )
+    await callback.message.reply_text(msg_text, disable_web_page_preview=True)
 
 @Client.on_callback_query(filters.regex(r"^sw_tor_"))
 async def switch_to_torrents_callback(client: Client, callback: CallbackQuery):

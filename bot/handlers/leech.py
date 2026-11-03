@@ -1,7 +1,7 @@
 import os
 import requests
 from hydrogram import Client, filters
-from hydrogram.types import CallbackQuery
+from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import config
 from bot.utils.database import db
 from bot.utils.torrent import search_torrents, get_cached_torrent
@@ -65,14 +65,15 @@ async def leech_vm_callback_handler(client: Client, callback: CallbackQuery):
         f"🎬 **Title:** `{title}`\n"
         f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
         f"🔊 **Audio:** `{languages}`\n\n"
-        f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
-        f"`{magnet}`\n\n"
         f"🚀 **Live Leech Status:**\n"
         f"`[░░░░░░░░░░░░░░] 0%` • {status_label}...\n"
         f"🌐 **Server:** Oracle Cloud (`140.245.193.224`) • Unblocked P2P\n"
         f"📱 **Mobile Hotspot Data Used:** **0 MB**"
     )
-    await status_msg.edit_text(init_text)
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Copy Magnet Link", callback_data=f"copy_mag_{info_hash}")]
+    ])
+    await status_msg.edit_text(init_text, reply_markup=markup)
 
 @Client.on_callback_query(filters.regex(r"^leech_gh_"))
 async def leech_gh_callback_handler(client: Client, callback: CallbackQuery):
@@ -108,13 +109,14 @@ async def leech_gh_callback_handler(client: Client, callback: CallbackQuery):
         f"🎬 **Title:** `{title}`\n"
         f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
         f"🔊 **Audio:** `{languages}`\n\n"
-        f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
-        f"`{magnet}`\n\n"
         f"🚀 **Cloud Leech Status:**\n"
         f"`[░░░░░░░░░░░░░░] 0%` • Dispatching Azure Cloud Runner...\n"
         f"📱 **Mobile Hotspot Data Used:** **0 MB**"
     )
-    await status_msg.edit_text(init_text)
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Copy Magnet Link", callback_data=f"copy_mag_{info_hash}")]
+    ])
+    await status_msg.edit_text(init_text, reply_markup=markup)
 
     try:
         gh_url = f"https://api.github.com/repos/{config.GITHUB_REPO}/dispatches"
@@ -141,14 +143,12 @@ async def leech_gh_callback_handler(client: Client, callback: CallbackQuery):
                 f"🎬 **Title:** `{title}`\n"
                 f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
                 f"🔊 **Audio:** `{languages}`\n\n"
-                f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
-                f"`{magnet}`\n\n"
                 f"🚀 **Cloud Leech Dispatched to GitHub Actions!**\n"
                 f"⚡ **Speed:** ~80-120 MB/s (Azure Cloud Runner)\n"
                 f"📱 **Mobile Hotspot Data Used:** **0 MB**\n\n"
                 f"⏳ Downloading in Microsoft Azure cloud. Live progress updates will appear below:"
             )
-            await status_msg.edit_text(confirm_text)
+            await status_msg.edit_text(confirm_text, reply_markup=markup)
         else:
             await status_msg.edit_text(f"⚠️ GitHub Dispatch failed (Status `{res.status_code}`). Please try Oracle VM Leech.")
     except Exception as e:
