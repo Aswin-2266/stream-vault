@@ -16,10 +16,12 @@ The core engine is fully implemented, verified, and operational:
 * **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
 * **Public Gateway:** Direct Public IPv4 streaming on `http://140.245.193.224:7860`
 * **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` and `tgcrypto` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
-* **Cloud Torrent Leeching (Phase 2):** Dual-engine architecture operational:
+* **Cloud Torrent Leeching (Phase 2 & 3):** Dual-engine architecture operational:
   - 1-Tap automated GitHub Actions cloud runner (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`)
+  - **Instant Torrent Finder:** Tap any release button to display the full release details and a 1-tap copyable Magnet link (`magnet:?xt=...`) directly in chat for external apps (Flud, 1DM, qBittorrent)
+  - **Live Progress Updates:** Real-time editing of the Telegram status message at quarter milestones (25%, 50%, 75%, 100%) and 5s throttled updates with visual progress bars (`[███████░░░░░░░░] 50%`) and gigabit speed tracking
   - Queue-driven Google Colab batch worker (`notebooks/leech_colab.ipynb`)
-  - Dual-index search aggregator (YTS + Apibay/OpenTrackers for Tamil/Hindi/Multi-Audio)
+  - Regional & Indian Torrent Aggregator (Torrentio Stremio Streams, BitSearch, Apibay, YTS) with language audio detection
 * **Access Control:** Whitelist security active (`ALLOWED_USERS` filter on all handlers)
 * **Mobile Data Impact:** **~0 MB** consumed from your phone hotspot (Telegram cloud-to-cloud file transfers)
 
@@ -96,6 +98,7 @@ ssh -i "$HOME\Downloads\ssh-key-2026-11-03.key" ubuntu@140.245.193.224
 ## 📂 Project Architecture & Documentation
 
 - [docs/architecture-plan.md](docs/architecture-plan.md): Full technical architecture, component flowcharts, and module breakdown.
+- [docs/pending-decisions.md](docs/pending-decisions.md): Comprehensive evaluation of options to overcome the 2 GB Telegram file limit (Oracle Direct Stream Gateway, Telegram Premium Userbot, Real-Debrid Bridge, HEVC Transcoding).
 - [docs/setup-guide.md](docs/setup-guide.md): Credentials walkthrough for BotFather, Telegram MTProto API, and MongoDB Atlas.
 - [docs/huggingface-deploy.md](docs/huggingface-deploy.md): Docker deployment documentation.
 - [conversations/README.md](conversations/README.md): Complete archive of historical Antigravity design sessions (`session_01` & `session_02`).
