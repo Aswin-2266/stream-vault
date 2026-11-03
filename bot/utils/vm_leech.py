@@ -120,10 +120,10 @@ def split_video_lossless(file_path: str) -> list[str]:
     duration = 0.0
     try:
         cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file_path]
-        res = os.popen(" ".join(cmd)).read().strip()
+        res = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
         duration = float(res)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"ffprobe duration lookup failed: {e}")
 
     num_parts = math.ceil(file_size / TELEGRAM_MAX_BYTES)
     if num_parts < 2 or duration <= 0:
@@ -140,7 +140,10 @@ def split_video_lossless(file_path: str) -> list[str]:
         "-reset_timestamps", "1",
         out_pattern
     ]
-    os.system(" ".join(split_cmd))
+    try:
+        subprocess.run(split_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+    except Exception as e:
+        logger.error(f"ffmpeg split execution failed: {e}")
 
     directory = os.path.dirname(file_path) or "."
     base_fn = os.path.basename(base_name)
@@ -258,6 +261,12 @@ class VMLeechManager:
                         part_label = f" (Part {part_idx}/{len(parts)})" if is_split else ""
 
                         logger.info(f"{file_label}Uploading {part_name}{part_label} to Telegram Vault...")
+                        send_telegram_progress(
+                            config.BOT_TOKEN, chat_id, message_id,
+                            title=title, size=size, seeds=seeds, magnet=magnet,
+                            pct=100,
+                            status_text=f"📤 <b>Uploading to Telegram Vault:</b>\n<code>{html.escape(part_name)}{html.escape(part_label)}</code> ({format_size(part_size)})..."
+                        )
                         uploaded = await bot.send_document(
                             chat_id=config.LOG_CHANNEL_ID,
                             document=part_path,
