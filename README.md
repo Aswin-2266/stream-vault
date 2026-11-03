@@ -15,13 +15,11 @@
 
 ### 🌟 Key Highlights
 * **Zero Mobile Data Consumption:** Movie files move **cloud-to-cloud** directly within Telegram's data centers. Indexing 1,000+ movies uses under 5 MB of internet traffic.
-* **Instant AutoFilter Search:** Fast regex search powered by MongoDB Atlas returns matches with inline resolution and size badges.
+* **Native Oracle Cloud Leech Engine:** Downloads torrents directly on the Oracle VM (`140.245.193.224`) using an asynchronous `aria2c` worker with unblocked P2P ports (`50101-50109`). Connects directly to Indian home seeders (Jio/Airtel CGNAT) with zero stalls.
+* **2-Step Release Details Gateway:** Clean search results (`[🎬 #1 (1080p)]`) edit in-place to display release specs, a 1-tap copyable Magnet code block for 1DM/Flud, and dual leech options (`⚡ Leech (Oracle VM)` vs `☁️ Leech (GitHub)`).
+* **Automated Rolling FIFO Cache:** Cached video files stay in `downloads/` for 3 days for zero-latency local HTTP Range-Request streaming on port `7860`. An automated cleaner purges files older than 3 days or when disk $>75\%$, while remaining permanently backed up in your Telegram Vault.
+* **Instant AutoFilter Search & Language Priority:** Intelligent 2-tier search ranking: when a language keyword is supplied (e.g. `tamil`, `telugu`, `hindi`), matching language releases are prioritized at the top of both Vault and Cloud Torrent tabs, sorted by seeders descending.
 * **Direct Stream Delivery (DDL):** Built-in asynchronous HTTP server handling byte-range requests for seamless streaming in VLC, MX Player, MPV, or web browsers.
-* **Automated Cloudflare HTTPS Gateway:** Generates an encrypted `*.trycloudflare.com` public URL on startup so mobile devices stream directly without port-forwarding.
-* **Dual-Engine Cloud Leeching:** 1-tap automated torrent leeching via GitHub Actions (never leave the bot) + Queue-driven Google Colab worker (`notebooks/leech_colab.ipynb`) for batch series, all with **0 MB mobile hotspot data**.
-* **Universal IMDb Auto-Correction:** Typo-tolerant movie title resolution powered by IMDb's open suggestion API (e.g. `openhimer` ➔ `Oppenheimer`, `shashank redemption` ➔ `The Shawshank Redemption`) with smart audio language token isolation (`tamil`, `telugu`, `hindi`).
-* **Dual-Index Search Engine:** Aggregates YTS for Hollywood 720p/1080p/4K releases and Open Trackers for Indian regional/dubbed content (Tamil, Telugu, Hindi).
-* **Hardware-Accelerated Crypto:** Injects C-optimized `cryptg` AES-NI routines to eliminate MTProto timeouts, achieving <2ms decryption per chunk.
 * **Lossless Video Splitting:** Automatically slices media files exceeding 1.95 GB using `ffmpeg` stream copying (no re-encoding) to comply with Telegram's free upload limits.
 * **Strict Whitelist Security:** Enforces access control via `ALLOWED_USERS` to prevent unauthorized usage and protect server resources.
 
@@ -108,7 +106,44 @@ StreamVault runs 24/7 on Oracle Cloud Infrastructure (OCI) Always Free tier:
    cd ~/stream-vault && git pull && sudo systemctl restart streamvault
    ```
 
-3. **Anti-Idle Daemon:** Includes `oracle-keepalive.timer` to protect Always Free compute instances from idle reclamation.
+3. **Open BitTorrent & Streaming Ports (In Oracle VM iptables):**
+   ```bash
+   # Open HTTP streaming gateway (Port 7860) and BitTorrent P2P swarm (Ports 50101-50109)
+   sudo iptables -I INPUT 1 -p tcp --dport 7860 -j ACCEPT
+   sudo iptables -I INPUT 1 -p tcp --dport 50101:50109 -j ACCEPT
+   sudo iptables -I INPUT 1 -p udp --dport 50101:50109 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+   *(Ensure these ports are also allowed in your Oracle Cloud VCN Security List).*
+
+4. **Anti-Idle Daemon:** Includes `oracle-keepalive.timer` to protect Always Free compute instances from idle reclamation.
+
+---
+
+## 🔍 Search & Language Ranking Hierarchy
+
+When searching for movies with or without language tokens (e.g. `Jailer tamil`, `Interstellar hindi`):
+
+```text
+User Search: "<Title> <Language>"
+       │
+       ▼
+1. Language Token Extraction:
+   - Isolates audio keywords: tamil, telugu, hindi, malayalam, kannada, english.
+   - Preserves exact movie title without forced auto-correction.
+       │
+       ▼
+2. 2-Tier Priority Sorting:
+   ┌─────────────────────────────────────────────────────────────┐
+   │ Priority 1 (Top): Exact Language & Multi/Dual-Audio Matches │
+   │                  Sorted strictly by SEEDERS (High to Low)   │
+   ├─────────────────────────────────────────────────────────────┤
+   │ Priority 2: Other Language Releases (Original / Global)     │
+   │                  Sorted strictly by SEEDERS (High to Low)   │
+   └─────────────────────────────────────────────────────────────┘
+```
+
+Both the **MongoDB Vault Tab** and the **Cloud Torrents Tab** enforce this hierarchy.
 
 ---
 

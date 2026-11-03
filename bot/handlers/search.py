@@ -4,7 +4,7 @@ from hydrogram import Client, filters
 from hydrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import config
 from bot.utils.database import db
-from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion, get_cached_torrent
+from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion, get_cached_torrent, LANGUAGE_MAP
 from bot.handlers.start import is_authorized
 from bot.handlers.indexer import format_size
 
@@ -197,6 +197,14 @@ async def search_handler(client: Client, message: Message):
     status_msg = await message.reply_text(f"🔍 Searching library for `{search_term}`...")
     vault_results = await db.search_files(search_term, limit=50)
 
+    # Prioritize vault files matching requested language
+    if detected_lang and vault_results:
+        aliases = LANGUAGE_MAP.get(detected_lang, [detected_lang])
+        def vault_lang_score(doc):
+            fn = (doc.get("file_name", "") + " " + doc.get("caption", "")).lower()
+            return any(a in fn for a in aliases) or "multi" in fn or "dual" in fn
+        vault_results.sort(key=vault_lang_score, reverse=True)
+
     # If vault has results, render Vault Tab immediately (0ms delay)
     if vault_results:
         torrent_results = search_torrents(query, limit=35)
@@ -260,6 +268,12 @@ async def suggestion_search_callback(client: Client, callback: CallbackQuery):
     clean_title, detected_lang = extract_language_and_title(new_query)
     search_term = clean_title if clean_title else new_query
     vault_results = await db.search_files(search_term, limit=50)
+    if detected_lang and vault_results:
+        aliases = LANGUAGE_MAP.get(detected_lang, [detected_lang])
+        def vault_lang_score(doc):
+            fn = (doc.get("file_name", "") + " " + doc.get("caption", "")).lower()
+            return any(a in fn for a in aliases) or "multi" in fn or "dual" in fn
+        vault_results.sort(key=vault_lang_score, reverse=True)
     torrent_results = search_torrents(new_query, limit=35)
 
     SEARCH_CACHE[new_qid] = {
