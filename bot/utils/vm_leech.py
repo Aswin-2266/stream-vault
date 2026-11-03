@@ -290,6 +290,13 @@ class VMLeechManager:
                 # Phase 2: Upload to Telegram Cloud Vault for permanent retention
                 for vid_idx, video_file in enumerate(video_files, start=1):
                     file_label = f"[{vid_idx}/{len(video_files)}] " if len(video_files) > 1 else ""
+                    if os.path.getsize(video_file) > TELEGRAM_MAX_BYTES:
+                        send_telegram_progress(
+                            config.BOT_TOKEN, chat_id, message_id,
+                            title=title, size=size, seeds=seeds, magnet=magnet,
+                            pct=100,
+                            status_text=f"✂️ <b>Lossless Video Splitting:</b> File ({format_size(os.path.getsize(video_file))}) exceeds 1.95 GB. Splitting into parts..."
+                        )
                     parts = split_video_lossless(video_file)
                     is_split = len(parts) > 1
                     base_unique_id = pre_unique_map.get(video_file, "")
@@ -307,10 +314,25 @@ class VMLeechManager:
                             pct=100,
                             status_text=f"📤 <b>Uploading to Telegram Vault:</b>\n<code>{html.escape(part_name)}{html.escape(part_label)}</code> ({format_size(part_size)})..."
                         )
+                        last_up_update = [0.0]
+                        def upload_progress(current, total):
+                            now = time.time()
+                            if now - last_up_update[0] >= 5.0 or current == total:
+                                last_up_update[0] = now
+                                pct_up = int(current * 100 / total) if total else 0
+                                bar_up = make_progress_bar(pct_up)
+                                send_telegram_progress(
+                                    config.BOT_TOKEN, chat_id, message_id,
+                                    title=title, size=size, seeds=seeds, magnet=magnet,
+                                    pct=100,
+                                    status_text=f"📤 <b>Uploading to Telegram Vault:</b>\n<code>[{bar_up}] {pct_up}%</code> ({format_size(current)} / {format_size(total)})\n<code>{html.escape(part_name)}{html.escape(part_label)}</code>"
+                                )
+
                         uploaded = await bot.send_document(
                             chat_id=config.LOG_CHANNEL_ID,
                             document=part_path,
-                            caption=f"🎬 {part_name}{part_label}"
+                            caption=f"🎬 {part_name}{part_label}",
+                            progress=upload_progress
                         )
                         media = uploaded.video or uploaded.document
                         vault_file_id = media.file_id
