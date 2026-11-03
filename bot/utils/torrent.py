@@ -58,19 +58,17 @@ LANGUAGE_MAP = {
 }
 
 @functools.lru_cache(maxsize=512)
-def get_imdb_suggestion(query: str) -> str | None:
+def get_imdb_meta(query: str) -> dict | None:
     """
-    Queries IMDb open suggestions API and returns an optional suggested canonical title
-    only if it differs from the user's typed query.
-    Returns None if no suggestion is needed or if already matched.
+    Queries IMDb open suggestions API and returns metadata including canonical IMDb ID,
+    title, and release year.
+    e.g. 'Jailer' -> {'id': 'tt11663228', 'title': 'Jailer', 'year': 2023}
     """
-    if not query or len(query.strip()) < 3:
+    if not query or len(query.strip()) < 2:
         return None
 
     clean = query.strip()
-    first_char = clean[0].lower()
-    if not first_char.isalnum():
-        first_char = "a"
+    first_char = clean[0].lower() if clean[0].isalnum() else "a"
     slug = clean.lower().replace(" ", "_")
     url = f"https://v3.sg.media-imdb.com/suggestion/{first_char}/{urllib.parse.quote(slug)}.json"
 
@@ -91,18 +89,35 @@ def get_imdb_suggestion(query: str) -> str | None:
             if not candidates:
                 return None
 
-            # If exact match exists with high popularity, no suggestion is needed
-            for c in candidates:
-                if c.get("l", "").strip().lower() == clean.lower() and c.get("rank", 9999999) < 25000:
-                    return None
+            # 1. Prioritize exact title matches (excluding unreleased future years if released exists)
+            exact = [x for x in candidates if x.get("l", "").strip().lower() == clean.lower()]
+            if exact:
+                exact.sort(key=lambda x: (x.get("y", 0) > 2026, x.get("rank", 9999999)))
+                chosen = exact[0]
+                return {"id": chosen.get("id"), "title": chosen.get("l"), "year": chosen.get("y")}
 
-            best_by_rank = min(candidates, key=lambda x: x.get("rank", 9999999))
-            suggested = best_by_rank.get("l")
-            if suggested and suggested.strip().lower() != clean.lower():
-                return suggested
+            # 2. Otherwise pick the highest-ranked (most popular) title
+            candidates.sort(key=lambda x: x.get("rank", 9999999))
+            chosen = candidates[0]
+            return {"id": chosen.get("id"), "title": chosen.get("l"), "year": chosen.get("y")}
     except Exception:
         pass
 
+    return None
+
+@functools.lru_cache(maxsize=512)
+def get_imdb_suggestion(query: str) -> str | None:
+    """
+    Queries IMDb open suggestions API and returns an optional suggested canonical title
+    only if it differs from the user's typed query.
+    Returns None if no suggestion is needed or if already matched.
+    """
+    meta = get_imdb_meta(query)
+    if not meta:
+        return None
+    suggested = meta.get("title")
+    if suggested and suggested.strip().lower() != query.strip().lower():
+        return suggested
     return None
 
 def extract_language_and_title(query: str) -> tuple[str, str | None]:
@@ -186,17 +201,117 @@ def build_magnet(info_hash: str, display_name: str) -> str:
         params.append(("tr", tr))
     return f"magnet:?{urllib.parse.urlencode(params)}"
 
+def search_torrentio(imdb_id: str, requested_lang: str | None = None) -> list[dict]:
+    """
+    Queries Torrentio Stream Aggregator for verified Indian Regional,
+    Bollywood, and Hollywood releases across TamilBlasters, TamilMV, 1337x,
+    TorrentGalaxy, EZTV, and ThePirateBay.
+    """
+    results = []
+    endpoints = [
+        f"https://torrentio.strem.fun/stream/movie/{imdb_id}.json",
+        f"https://torrentio.strem.fun/stream/series/{imdb_id}:1:1.json"
+    ]
+
+    for url in endpoints:
+        try:
+            resp = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                timeout=4
+            )
+            if resp.status_code == 200:
+                streams = resp.json().get("streams", [])
+                if not streams:
+                    continue
+
+                for s in streams:
+                    info_hash = s.get("infoHash", "").upper()
+                    if not info_hash or len(info_hash) != 40:
+                        continue
+
+                    raw_title = s.get("title", "")
+                    lines = [l.strip() for l in raw_title.split("\n") if l.strip()]
+                    name = lines[0] if lines else f"Release {info_hash[:8]}"
+
+                    # Extract seeders: 👤 (\d+)
+                    seed_m = re.search(r"[👤👥]\s*(\d+)", raw_title)
+                    seeds = int(seed_m.group(1)) if seed_m else 5
+
+                    # Extract file size: 💾 ([\d\.]+ ?[GMK]B)
+                    size_m = re.search(r"💾\s*([\d\.]+\s*[GMK]B)", raw_title, re.IGNORECASE)
+                    size_str = size_m.group(1).upper() if size_m else "N/A"
+
+                    # Extract provider/tracker tag: ⚙️ ([^\n]+)
+                    src_m = re.search(r"⚙️\s*([^\n]+)", raw_title)
+                    source_tag = src_m.group(1).strip() if src_m else "Torrentio"
+
+                    if seeds >= 15:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds >= 3:
+                        seed_badge = f"⚡ {seeds} Seeds"
+                    elif seeds > 0:
+                        seed_badge = f"⚠️ {seeds} Seeds (Slow)"
+                    else:
+                        seed_badge = "❌ 0 Seeds (Dead)"
+
+                    languages = detect_audio_languages(name + " " + raw_title)
+                    resolution = detect_resolution(name)
+                    magnet = build_magnet(info_hash, name)
+
+                    has_requested_lang = False
+                    if requested_lang:
+                        aliases = LANGUAGE_MAP.get(requested_lang, [requested_lang])
+                        full_haystack = (name + " " + raw_title).lower()
+                        if any(a in full_haystack for a in aliases) or "multi" in full_haystack or "dual" in full_haystack:
+                            has_requested_lang = True
+
+                    results.append({
+                        "title": name,
+                        "quality": resolution,
+                        "languages": languages,
+                        "size": size_str,
+                        "seeds": seeds,
+                        "seed_badge": seed_badge,
+                        "magnet": magnet,
+                        "hash": info_hash,
+                        "has_requested_lang": has_requested_lang,
+                        "source": f"Torrentio ({source_tag})"
+                    })
+
+                # If movie results were found, skip series endpoint check
+                if results:
+                    break
+        except Exception:
+            pass
+
+    return results
+
 def search_torrents(query: str, limit: int = 35) -> list[dict]:
     """
     Multi-Engine Search Aggregator with Smart Language Prioritization:
     1. Extracts requested language (e.g. 'tamil').
-    2. Aggregates releases across Apibay, BitSearch (TamilBlasters / regional), and YTS.
-    3. Injects 30+ Tier-1 DHT announce trackers into every magnet.
-    4. Ranks matching language releases at the top, followed by seeders count.
+    2. Queries Torrentio (TamilBlasters, TamilMV, 1337x, TGx) via canonical IMDb ID.
+    3. Aggregates releases across Apibay, BitSearch, and YTS.
+    4. Injects 30+ Tier-1 DHT announce trackers into every magnet.
+    5. Ranks matching language releases at the top, followed by seeders count.
     """
     clean_query, requested_lang = extract_language_and_title(query)
     results = []
     seen_hashes = set()
+
+    # Query 0: Torrentio Regional Aggregator (TamilBlasters, TamilMV, 1337x, TGx)
+    try:
+        imdb_meta = get_imdb_meta(clean_query)
+        if imdb_meta and imdb_meta.get("id"):
+            torrentio_results = search_torrentio(imdb_meta["id"], requested_lang)
+            for item in torrentio_results:
+                info_hash = item["hash"]
+                if info_hash not in seen_hashes:
+                    seen_hashes.add(info_hash)
+                    results.append(item)
+    except Exception:
+        pass
 
     # Query 1: Apibay (The Pirate Bay / Open Trackers)
     try:
