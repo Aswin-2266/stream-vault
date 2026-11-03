@@ -79,8 +79,9 @@ class TestVMLeechAndCleaner(unittest.TestCase):
             "chat_id": 12345,
             "message_id": 67890
         }
-        q_pos = vm_leech_manager.enqueue(test_task)
-        self.assertGreaterEqual(q_pos, 1)
+        info = vm_leech_manager.enqueue(test_task)
+        self.assertIn("status", info)
+        self.assertIn("Slot", info["status"])
 
 if __name__ == "__main__":
     unittest.main()

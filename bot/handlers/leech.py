@@ -57,7 +57,8 @@ async def leech_vm_callback_handler(client: Client, callback: CallbackQuery):
         "message_id": callback.message.id
     }
 
-    q_pos = vm_leech_manager.enqueue(task_data)
+    enqueue_info = vm_leech_manager.enqueue(task_data)
+    status_label = enqueue_info["status"]
 
     init_text = (
         f"⚡ **Oracle Cloud Native Leech**\n\n"
@@ -67,7 +68,7 @@ async def leech_vm_callback_handler(client: Client, callback: CallbackQuery):
         f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
         f"`{magnet}`\n\n"
         f"🚀 **Live Leech Status:**\n"
-        f"`[░░░░░░░░░░░░░░] 0%` • Queued on Oracle VM (Position #{q_pos})...\n"
+        f"`[░░░░░░░░░░░░░░] 0%` • {status_label}...\n"
         f"🌐 **Server:** Oracle Cloud (`140.245.193.224`) • Unblocked P2P\n"
         f"📱 **Mobile Hotspot Data Used:** **0 MB**"
     )

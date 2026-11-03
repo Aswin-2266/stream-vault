@@ -70,7 +70,13 @@ def send_telegram_progress(
         "disable_web_page_preview": True
     }
     try:
-        requests.post(url, json=payload, timeout=5)
+        res = requests.post(url, json=payload, timeout=5)
+        if res.status_code == 429:
+            retry_after = res.json().get("parameters", {}).get("retry_after", 1.5)
+            time.sleep(retry_after)
+            res = requests.post(url, json=payload, timeout=5)
+        if res.status_code != 200 and "message is not modified" not in res.text:
+            logger.warning(f"Telegram progress edit returned {res.status_code}: {res.text}")
     except Exception as e:
         logger.warning(f"Telegram progress edit failed: {e}")
 
@@ -154,10 +160,28 @@ class VMLeechManager:
             task_data = await self.queue.get()
             asyncio.create_task(self._execute_task(task_data))
 
-    def enqueue(self, task_data: dict) -> int:
-        """Adds a torrent task to the queue and returns current queue size."""
+    def enqueue(self, task_data: dict) -> dict:
+        """
+        Adds a torrent task to the queue and returns slot/waiting position details.
+        """
+        active_count = len(self.active_tasks)
+        max_slots = config.MAX_PARALLEL_DOWNLOADS
+        if active_count < max_slots:
+            slot_num = active_count + 1
+            status_desc = f"Active Leech (Slot {slot_num}/{max_slots})"
+            is_active = True
+        else:
+            q_pos = self.queue.qsize() + 1
+            status_desc = f"Queued on Oracle VM (Position #{q_pos} in waiting line)"
+            is_active = False
+
         self.queue.put_nowait(task_data)
-        return self.queue.qsize()
+        return {
+            "is_active": is_active,
+            "status": status_desc,
+            "active_count": active_count,
+            "queue_size": self.queue.qsize()
+        }
 
     async def _execute_task(self, task: dict):
         async with self.semaphore:
@@ -173,6 +197,9 @@ class VMLeechManager:
             self.active_tasks[task_id] = task
             task_dir = os.path.join("downloads", f"task_{task_id}")
             os.makedirs(task_dir, exist_ok=True)
+
+            # Polite 1.0s pause to respect Telegram message edit rate limit
+            await asyncio.sleep(1.0)
 
             logger.info(f"[Oracle VM Leech] Starting download: {title} (ID: {task_id})")
             send_telegram_progress(
