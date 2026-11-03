@@ -9,7 +9,10 @@ Uses 0 MB of user mobile hotspot data!
 
 import os
 import sys
+import re
 import math
+import time
+import html
 import shutil
 import argparse
 import asyncio
@@ -18,6 +21,7 @@ import datetime
 import subprocess
 import traceback
 import certifi
+import requests
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # Setup logging
@@ -44,7 +48,69 @@ def apply_crypto_patch():
     except Exception as e:
         logger.warning(f"Could not load cryptg: {e}")
 
-def run_aria2c(magnet: str, download_dir: str):
+def make_progress_bar(pct: int, length: int = 14) -> str:
+    filled = int(round(length * pct / 100))
+    return "█" * filled + "░" * (length - filled)
+
+def send_telegram_progress(
+    bot_token: str,
+    chat_id: int,
+    message_id: int,
+    title: str,
+    size: str,
+    seeds: str,
+    magnet: str,
+    pct: int,
+    speed: str = "",
+    eta: str = "",
+    status_text: str = ""
+):
+    if not (bot_token and chat_id and message_id):
+        return
+
+    bar = make_progress_bar(pct)
+    speed_text = f" • 🚀 <code>{html.escape(speed)}/s</code>" if speed else ""
+    eta_text = f" • ⏳ ETA: <code>{html.escape(eta)}</code>" if eta else ""
+
+    if not status_text:
+        status_line = f"<code>[{bar}] {pct}%</code>{speed_text}{eta_text}"
+    else:
+        status_line = f"<code>[{bar}] {pct}%</code>\n{status_text}"
+
+    html_text = (
+        f"🧲 <b>Torrent Finder &amp; Cloud Leech</b>\n\n"
+        f"🎬 <b>Title:</b> <code>{html.escape(title)}</code>\n"
+        f"📦 <b>Size:</b> <code>{html.escape(str(size))}</code> • 🌱 <b>Seeds:</b> <code>{html.escape(str(seeds))}</code>\n\n"
+        f"📋 <b>Magnet Link (Tap below to copy for external apps):</b>\n"
+        f"<code>{html.escape(magnet)}</code>\n\n"
+        f"⚡ <b>Cloud Leech Progress:</b>\n"
+        f"{status_line}\n"
+        f"📱 <b>Mobile Hotspot Data Used:</b> <b>0 MB</b>"
+    )
+
+    url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": html_text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
+    try:
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        logger.warning(f"Telegram progress edit failed: {e}")
+
+def run_aria2c(
+    magnet: str,
+    download_dir: str,
+    bot_token: str = "",
+    chat_id: int = 0,
+    message_id: int = 0,
+    title: str = "",
+    size: str = "",
+    seeds: str = "0"
+):
     os.makedirs(download_dir, exist_ok=True)
     aria2 = shutil.which("aria2c")
     if not aria2:
@@ -64,13 +130,77 @@ def run_aria2c(magnet: str, download_dir: str):
         "--max-connection-per-server=16",
         "--split=16",
         "--min-split-size=1M",
-        "--summary-interval=5",
+        "--summary-interval=2",
         "--dir", download_dir,
         magnet
     ]
-    res = subprocess.run(cmd)
-    if res.returncode != 0:
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    pct_pattern = re.compile(r'\((\d{1,3})%\)')
+    dl_pattern = re.compile(r'DL:([^\s]+)')
+    eta_pattern = re.compile(r'ETA:([^\s\]]+)')
+
+    last_update_time = 0.0
+    last_pct = -1
+    milestones_hit = set()
+
+    for line in proc.stdout:
+        line_str = line.strip()
+        if not line_str:
+            continue
+
+        pct_match = pct_pattern.search(line_str)
+        if pct_match:
+            try:
+                pct = int(pct_match.group(1))
+            except ValueError:
+                continue
+
+            dl_match = dl_pattern.search(line_str)
+            eta_match = eta_pattern.search(line_str)
+            speed = dl_match.group(1) if dl_match else ""
+            eta = eta_match.group(1) if eta_match else ""
+
+            now = time.time()
+            # Quarter milestones: 25%, 50%, 75%, 100%
+            is_quarter_milestone = False
+            for milestone in [25, 50, 75, 100]:
+                if pct >= milestone and milestone not in milestones_hit:
+                    milestones_hit.add(milestone)
+                    is_quarter_milestone = True
+                    break
+
+            time_elapsed = now - last_update_time
+            progress_delta = pct - last_pct
+
+            # Update on quarter milestone OR if 5s elapsed and >= 5% progress
+            if is_quarter_milestone or (time_elapsed >= 5.0 and progress_delta >= 5):
+                last_update_time = now
+                last_pct = pct
+                send_telegram_progress(
+                    bot_token, chat_id, message_id,
+                    title=title, size=size, seeds=seeds, magnet=magnet,
+                    pct=pct, speed=speed, eta=eta
+                )
+
+    proc.wait()
+    if proc.returncode != 0:
         raise RuntimeError("Torrent download stalled or timed out (no active seeders available). Please choose a release with higher seeds.")
+
+    # 100% completed download
+    send_telegram_progress(
+        bot_token, chat_id, message_id,
+        title=title, size=size, seeds=seeds, magnet=magnet,
+        pct=100,
+        status_text="✅ <b>Download Complete!</b> Inspecting video files &amp; preparing upload..."
+    )
 
 def find_all_video_files(download_dir: str) -> list[str]:
     """Finds all valid video files in the download directory, filtering out tiny sample clips"""
@@ -134,7 +264,16 @@ def split_video(file_path: str) -> list[str]:
 
     return parts or [file_path]
 
-async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: str = None):
+async def process_cloud_leech(
+    magnet: str,
+    title: str,
+    user_id: int,
+    task_id: str = None,
+    chat_id: int = 0,
+    message_id: int = 0,
+    size: str = "",
+    seeds: str = "0"
+):
     # Load required environment variables
     api_id = int(os.getenv("API_ID", "0"))
     api_hash = os.getenv("API_HASH", "")
@@ -200,7 +339,16 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
     try:
         # Step 2: Download torrent files via aria2c
         # (Bot is intentionally stopped during download so MTProto session timestamps never desynchronize!)
-        run_aria2c(magnet, download_dir)
+        run_aria2c(
+            magnet=magnet,
+            download_dir=download_dir,
+            bot_token=bot_token,
+            chat_id=chat_id,
+            message_id=message_id,
+            title=title,
+            size=size,
+            seeds=seeds
+        )
 
         # Step 3: Discover all video files (supports series packs and multi-episode torrents)
         video_files = find_all_video_files(download_dir)
@@ -266,6 +414,18 @@ async def process_cloud_leech(magnet: str, title: str, user_id: int, task_id: st
                 pass
 
         logger.info("Cloud Leech completed successfully!")
+        if bot_token and chat_id and message_id:
+            send_telegram_progress(
+                bot_token=bot_token,
+                chat_id=chat_id,
+                message_id=message_id,
+                title=title,
+                size=size,
+                seeds=seeds,
+                magnet=magnet,
+                pct=100,
+                status_text="🎉 <b>Leech &amp; Vault Ingestion Complete!</b>\nVideo file delivered below with streaming link!"
+            )
         try:
             await system_logs_col.insert_one({
                 "level": "INFO",
@@ -321,9 +481,22 @@ def main():
     parser.add_argument("--title", default="Movie", help="Display title")
     parser.add_argument("--user_id", type=int, default=0, help="Telegram User ID to notify")
     parser.add_argument("--task_id", default=None, help="MongoDB queue task ID")
+    parser.add_argument("--chat_id", type=int, default=0, help="Telegram Chat ID to edit progress")
+    parser.add_argument("--message_id", type=int, default=0, help="Telegram Message ID to edit progress")
+    parser.add_argument("--size", default="", help="Torrent file size")
+    parser.add_argument("--seeds", default="0", help="Torrent seeders")
     args = parser.parse_args()
 
-    asyncio.run(process_cloud_leech(args.magnet, args.title, args.user_id, args.task_id))
+    asyncio.run(process_cloud_leech(
+        magnet=args.magnet,
+        title=args.title,
+        user_id=args.user_id,
+        task_id=args.task_id,
+        chat_id=args.chat_id,
+        message_id=args.message_id,
+        size=args.size,
+        seeds=args.seeds
+    ))
 
 if __name__ == "__main__":
     main()

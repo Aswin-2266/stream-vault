@@ -17,6 +17,14 @@ on:
         description: 'Telegram User ID to notify'
         required: false
         default: '0'
+      chat_id:
+        description: 'Telegram Chat ID to edit progress'
+        required: false
+        default: '0'
+      message_id:
+        description: 'Telegram Message ID to edit progress'
+        required: false
+        default: '0'
 
 jobs:
   leech:
@@ -56,4 +64,8 @@ jobs:
             --magnet "${{ github.event.client_payload.magnet || github.event.inputs.magnet }}" \
             --title "${{ github.event.client_payload.title || github.event.inputs.title }}" \
             --user_id "${{ github.event.client_payload.user_id || github.event.inputs.user_id }}" \
-            --task_id "${{ github.event.client_payload.task_id || '' }}"
+            --task_id "${{ github.event.client_payload.task_id || '' }}" \
+            --chat_id "${{ github.event.client_payload.chat_id || github.event.inputs.chat_id || '' }}" \
+            --message_id "${{ github.event.client_payload.message_id || github.event.inputs.message_id || '' }}" \
+            --size "${{ github.event.client_payload.size || '' }}" \
+            --seeds "${{ github.event.client_payload.seeds || '0' }}"

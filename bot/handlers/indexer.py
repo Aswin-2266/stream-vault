@@ -1,6 +1,13 @@
 import asyncio
 from hydrogram import Client, filters
 from hydrogram.types import Message
+from hydrogram.errors import (
+    UsernameNotOccupied,
+    UsernameInvalid,
+    ChatAdminRequired,
+    ChannelPrivate,
+    PeerIdInvalid
+)
 import config
 from bot.utils.database import db
 from bot.handlers.start import is_authorized
@@ -38,8 +45,16 @@ async def index_single_channel(client: Client, channel_target: str, status_msg: 
 
     try:
         chat = await client.get_chat(channel_target)
+    except UsernameNotOccupied:
+        err = "Username not occupied (channel deleted, banned, or changed handle)"
+        return {"success": False, "channel": channel_target, "error": err, "indexed": 0}
+    except UsernameInvalid:
+        err = "Invalid Telegram username"
+        return {"success": False, "channel": channel_target, "error": err, "indexed": 0}
+    except ChannelPrivate:
+        err = "Channel is private (must add bot as Admin)"
+        return {"success": False, "channel": channel_target, "error": err, "indexed": 0}
     except Exception as e:
-        await status_msg.edit_text(f"❌ {prefix}**Failed to access channel `{channel_target}`:** `{e}`")
         return {"success": False, "channel": channel_target, "error": str(e), "indexed": 0}
 
     await status_msg.edit_text(f"📥 {prefix}**Indexing media from:** `{chat.title}`...\n(Lightning Ingestion • Zero FloodWait)")
@@ -89,9 +104,11 @@ async def index_single_channel(client: Client, channel_target: str, status_msg: 
             f"• **Movies Added to Vault:** `{total_indexed}`"
         )
         return {"success": True, "channel": chat.title, "indexed": total_indexed, "scanned": total_scanned}
+    except ChatAdminRequired:
+        err = "Bot must be an Administrator to read chat history"
+        return {"success": False, "channel": chat.title or channel_target, "indexed": total_indexed, "error": err}
     except Exception as e:
-        await status_msg.edit_text(f"⚠️ {prefix}Indexing interrupted for `{chat.title}`: `{e}`\nSaved `{total_indexed}` files before stopping.")
-        return {"success": False, "channel": chat.title, "indexed": total_indexed, "error": str(e)}
+        return {"success": False, "channel": chat.title or channel_target, "indexed": total_indexed, "error": str(e)}
 
 @Client.on_message(filters.command("index") & filters.private)
 async def index_channel_handler(client: Client, message: Message):
@@ -140,7 +157,7 @@ async def index_batch_handler(client: Client, message: Message):
         res = await index_single_channel(client, target, status_msg, batch_idx=idx, total_batch=len(channels))
         summary_reports.append(res)
         total_saved_all += res.get("indexed", 0)
-        await asyncio.sleep(2)  # Brief polite pause between channels
+        await asyncio.sleep(1.5)  # Brief polite pause between channels
 
     report_lines = [
         f"🎉 **Bulk Ingestion Complete!**\n",
@@ -148,8 +165,24 @@ async def index_batch_handler(client: Client, message: Message):
         f"📦 **Total Movies Added to Vault:** `{total_saved_all}`\n"
     ]
     for r in summary_reports:
-        mark = "✅" if r.get("success") else "⚠️"
-        report_lines.append(f"{mark} `{r.get('channel')}`: `{r.get('indexed', 0)}` movies")
+        ch = r.get("channel", "Unknown")
+        if r.get("success"):
+            report_lines.append(f"✅ `{ch}`: `{r.get('indexed', 0)}` movies")
+        else:
+            err = r.get("error", "Error")
+            report_lines.append(f"⚠️ `{ch}`: 0 movies ({err})")
+
+    if total_saved_all == 0:
+        report_lines.append(
+            "\n💡 **Why 0 movies or failed to access?**\n"
+            "• Telegram prevents bots from reading public channel history unless added as Admin.\n"
+            "• Many public pirate channels get banned or delete usernames frequently.\n\n"
+            "📌 **Guaranteed Solution:**\n"
+            "1. Create your own private Telegram channel (e.g. *My Movies*).\n"
+            "2. Add this bot as an **Administrator** with 'Post/Read' rights.\n"
+            "3. Forward movie files from any public channel to your private channel!\n"
+            "4. Run `/index @your_private_channel` or forward movies directly to this bot in chat!"
+        )
 
     await status_msg.edit_text("\n".join(report_lines))
 

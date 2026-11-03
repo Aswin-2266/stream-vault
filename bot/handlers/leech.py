@@ -41,10 +41,22 @@ async def leech_callback_handler(client: Client, callback: CallbackQuery):
     magnet = item["magnet"]
     size = item.get("size", "N/A")
     seeds = item.get("seeds", 0)
+    languages = item.get("languages", "Original Audio")
 
     # Path A: Automatic GitHub Actions Dispatch (Zero-Hotspot-Data Cloud Runner)
     if config.GH_TOKEN:
-        await status_msg.edit_text(f"🚀 **Dispatching Cloud Leech Runner...**\n`{title}`")
+        init_text = (
+            f"🧲 **Torrent Finder & Cloud Leech**\n\n"
+            f"🎬 **Title:** `{title}`\n"
+            f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
+            f"🔊 **Audio:** `{languages}`\n\n"
+            f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
+            f"`{magnet}`\n\n"
+            f"🚀 **Cloud Leech Status:**\n"
+            f"`[░░░░░░░░░░░░░░] 0%` • Dispatching Gigabit Cloud Runner...\n"
+            f"📱 **Mobile Hotspot Data Used:** **0 MB**"
+        )
+        await status_msg.edit_text(init_text)
         try:
             gh_url = f"https://api.github.com/repos/{config.GITHUB_REPO}/dispatches"
             headers = {
@@ -56,19 +68,26 @@ async def leech_callback_handler(client: Client, callback: CallbackQuery):
                 "client_payload": {
                     "magnet": magnet,
                     "title": title,
-                    "user_id": callback.from_user.id
+                    "size": str(size),
+                    "seeds": str(seeds),
+                    "user_id": callback.from_user.id,
+                    "chat_id": callback.message.chat.id,
+                    "message_id": callback.message.id
                 }
             }
             res = requests.post(gh_url, json=payload, headers=headers, timeout=10)
             if res.status_code in [200, 204]:
                 confirm_text = (
-                    f"🚀 **Cloud Leech Dispatched to GitHub Actions!**\n\n"
+                    f"🧲 **Torrent Finder & Cloud Leech**\n\n"
                     f"🎬 **Title:** `{title}`\n"
-                    f"📦 **Size:** `{size}` (Seeds: `{seeds}`)\n"
+                    f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
+                    f"🔊 **Audio:** `{languages}`\n\n"
+                    f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
+                    f"`{magnet}`\n\n"
+                    f"🚀 **Cloud Leech Dispatched to GitHub Actions!**\n"
                     f"⚡ **Speed:** ~80-120 MB/s (Gigabit Cloud)\n"
                     f"📱 **Mobile Hotspot Data Used:** **0 MB**\n\n"
-                    f"⏳ Cloud runner is downloading and uploading to your vault. "
-                    f"You will receive the file and streaming link directly here once ready!"
+                    f"⏳ Downloading in Microsoft Azure cloud. Live progress updates will appear below:"
                 )
                 await status_msg.edit_text(confirm_text)
                 return
@@ -90,11 +109,16 @@ async def leech_callback_handler(client: Client, callback: CallbackQuery):
     task_id = await db.add_to_queue(task_doc)
 
     queue_text = (
-        f"📥 **Added to Cloud Leech Queue!**\n\n"
+        f"🧲 **Torrent Finder & Cloud Leech**\n\n"
         f"🎬 **Title:** `{title}`\n"
-        f"📦 **Size:** `{size}`\n"
+        f"📦 **Size:** `{size}` • 🌱 **Seeds:** `{seeds}`\n"
+        f"🔊 **Audio:** `{languages}`\n\n"
+        f"📋 **Magnet Link (Tap below to copy for external apps):**\n"
+        f"`{magnet}`\n\n"
+        f"📥 **Added to Cloud Leech Queue!**\n"
         f"🆔 **Task ID:** `{task_id}`\n\n"
         f"💡 **Next Steps (0 MB Hotspot Data):**\n"
+        f"• You can copy the magnet link above and download directly in Flud, 1DM, or qBittorrent.\n"
         f"• **Instant 1-Tap Trigger:** Add `GH_TOKEN=your_github_token` to your `.env` so the bot triggers cloud runners automatically.\n"
         f"• **Google Colab Worker:** Open `notebooks/leech_colab.ipynb` and run it to process queued batch downloads at 100 MB/s!"
     )
