@@ -15,6 +15,7 @@
 
 ### 🌟 Key Highlights
 * **Zero Mobile Data Consumption:** Movie files move **cloud-to-cloud** directly within Telegram's data centers. Indexing 1,000+ movies uses under 5 MB of internet traffic.
+* **Instant Telegram Channel Harvester (1–2s Cloud Copy):** Automatically scans public movie channels and global MTProto archives for `.mkv`/`.mp4` media when a torrent stalls or has 0 seeders. Copies files cloud-to-cloud directly into your private Vault in **1–2 seconds** with 0 MB mobile hotspot data and 0 MB server disk consumption.
 * **Native Oracle Cloud Leech Engine:** Downloads torrents directly on the Oracle VM (`140.245.193.224`) using an asynchronous `aria2c` worker with unblocked P2P ports (`50101-50109`). Connects directly to Indian home seeders (Jio/Airtel CGNAT) with zero stalls.
 * **2-Step Release Details Gateway:** Clean search results (`[🎬 #1 (1080p)]`) edit in-place to display release specs, a 1-tap copyable Magnet code block for 1DM/Flud, and dual leech options (`⚡ Leech (Oracle VM)` vs `☁️ Leech (GitHub)`).
 * **Automated Rolling FIFO Cache:** Cached video files stay in `downloads/` for 3 days for zero-latency local HTTP Range-Request streaming on port `7860`. An automated cleaner purges files older than 3 days or when disk $>75\%$, while remaining permanently backed up in your Telegram Vault.
@@ -30,13 +31,15 @@
 | Command | Usage | Description |
 | :--- | :--- | :--- |
 | `/start` | `/start` | Welcome banner, whitelist verification, and live vault statistics. |
-| `/search` | `/search <title>` *(or send title directly)* | Tabbed paginated search: Instant Vault playback (Page 1..N) & 30+ Cloud Torrents. |
+| `/search` | `/search <title>` *(or send title directly)* | Multi-tab search gateway: Vault Files, Telegram Channels (1-2s copy), & Cloud Torrents. |
 | `/index` | `/index @channel_username` | Lightning channel crawler: indexes 2,000+ movies directly into MongoDB in seconds. |
 | `/index_batch` | `/index_batch @ch1 @ch2 @ch3` | Bulk crawler: sequentially indexes multiple movie dump channels into your vault. |
 | `/errors` | `/errors` | View recent system & cloud leech errors/warnings directly in Telegram with 1-tap clear. |
 | `/logs` | `/logs` | View recent operational system events from MongoDB Atlas. |
 | **Auto-Save** | Forward any video to the bot | Copies media to your storage channel and provides an instant DDL streaming link. |
 | **Cloud Leech** | Tap any torrent search result | Downloads at 100 MB/s in cloud, splits, and uploads to vault (0 MB mobile hotspot data). |
+| **Channel Harvester** | Tap `[📡 Telegram Channels]` | Instant 1–2s cloud-to-cloud copy from movie channels directly into your vault. |
+| **Dead Swarm Rescue** | Tap `[📡 Search Channels]` | 1-tap fallback when a torrent has 0 seeders or download stalls. |
 
 ---
 
@@ -73,6 +76,15 @@ cp .env.example .env
 | `MONGO_URI` | MongoDB Atlas connection string |
 | `ALLOWED_USERS` | Comma-separated Telegram User IDs allowed to access the bot |
 | `PORT` | Web streaming server port (default: `7860`) |
+| `TELEGRAM_SESSION_STRING` | *(Optional)* MTProto Userbot Session for 2-second cloud channel harvesting |
+| `HARVEST_CHANNELS` | *(Optional)* Comma-separated movie channels to search (e.g. `@tamilblasters_official`) |
+
+### 3b. Generate Telegram Userbot StringSession (Optional)
+To enable 1–2 second cloud-to-cloud harvesting from movie channels:
+```powershell
+python scripts/generate_string_session.py
+```
+*Prompted for your phone number and OTP code; paste the generated `TELEGRAM_SESSION_STRING=...` into your `.env`.*
 
 ### 4. Run the Bot
 ```powershell

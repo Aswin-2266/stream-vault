@@ -121,6 +121,61 @@ To ensure video streaming starts instantly without `Retrying upload.GetFile due 
 
 ---
 
+## 8. Telegram Userbot Harvester Setup (Generate StringSession)
+
+The **Telegram Userbot Harvester** solves the issue of dead torrent swarms by searching public Telegram movie channels and copying `.mkv` / `.mp4` video releases directly into your private Vault channel in **1–2 seconds cloud-to-cloud**.
+
+> [!TIP]
+> **Safety Recommendation:** We strongly advise using a **secondary/spare phone number** for your userbot session so your personal primary Telegram account remains completely separate from movie channels.
+
+### Step-by-Step Walkthrough:
+
+#### Step 1: Run the Interactive Session Generator
+On your local machine or terminal, run:
+```powershell
+python scripts/generate_string_session.py
+```
+
+#### Step 2: Authenticate with Telegram
+1. The script will automatically load your `API_ID` and `API_HASH` from `.env` (or prompt you to enter them).
+2. Enter the phone number of your secondary Telegram account (e.g., `+919876543210`).
+3. Enter the login confirmation code sent to your Telegram app (and 2FA cloud password if enabled).
+
+#### Step 3: Copy Your StringSession
+The script will output a secure session string starting with `1...` or `Ag...`:
+```text
+============================================================
+✅ StringSession Generated Successfully!
+👤 Account: My Secondary Account (@my_userbot, ID: 123456789)
+============================================================
+
+TELEGRAM_SESSION_STRING=1BVtsOGQBu...your_long_session_string...
+============================================================
+```
+
+#### Step 4: Add to `.env`
+Add the string to your `.env` file (on local or on the Oracle VM):
+```env
+TELEGRAM_SESSION_STRING=1BVtsOGQBu...your_long_session_string...
+
+# (Optional) Comma-separated list of specific channels to search
+HARVEST_CHANNELS=@tamilblasters_official,@telugucinema,@bolly4u
+```
+
+#### Step 5: Add the Account to your Vault Channel
+1. Open your private storage channel (`LOG_CHANNEL_ID`) in Telegram.
+2. Go to **Channel Settings ➔ Administrators ➔ Add Admin** (or add as Member).
+3. Add the secondary account and grant **Post Messages** permission.
+   *(This allows the userbot to copy movies cloud-to-cloud directly into your vault in 1–2 seconds).*
+
+#### Step 6: Restart StreamVault
+```bash
+sudo systemctl restart streamvault
+```
+Your bot will now feature a **`[📡 Telegram Channels]`** tab in search results and provide instant 2-second cloud harvesting!
+
+---
+
 ## Summary of Credentials Needed in `.env`
 
 Once you have completed these steps, your project configuration file (`.env`) will contain:
@@ -133,4 +188,8 @@ LOG_CHANNEL_ID=-100xxxxxxxxxx
 MONGO_URI=your_mongodb_connection_uri_here
 GH_TOKEN=ghp_optional_github_token_for_instant_cloud_leech
 GITHUB_REPO=Aswin-2266/stream-vault
+
+# Telegram Userbot Movie Harvester (Instant 2-Second Cloud Ingestion)
+TELEGRAM_SESSION_STRING=your_generated_string_session_here
+HARVEST_CHANNELS=@tamilblasters_official,@telugucinema
 ```
