@@ -83,6 +83,35 @@ python main.py
 
 ---
 
+## ☁️ 24/7 Cloud Hosting (Oracle Cloud Always Free)
+
+StreamVault runs 24/7 on Oracle Cloud Infrastructure (OCI) Always Free tier:
+
+1. **Systemd Service Management:**
+   ```bash
+   # View live real-time streaming logs
+   journalctl -u streamvault -f
+
+   # Check bot status and memory usage
+   sudo systemctl status streamvault
+
+   # Restart after updating code
+   sudo systemctl restart streamvault
+
+   # Stop / Start service
+   sudo systemctl stop streamvault
+   sudo systemctl start streamvault
+   ```
+
+2. **Pull Latest Updates on Server:**
+   ```bash
+   cd ~/stream-vault && git pull && sudo systemctl restart streamvault
+   ```
+
+3. **Anti-Idle Daemon:** Includes `oracle-keepalive.timer` to protect Always Free compute instances from idle reclamation.
+
+---
+
 ## 📂 Documentation & Reference
 
 * [docs/setup-guide.md](docs/setup-guide.md) — Step-by-step credentials acquisition walkthrough.

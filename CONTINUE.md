@@ -9,10 +9,13 @@ This document provides complete operational context, verified environment config
 The core engine is fully implemented, verified, and operational:
 
 * **Telegram Bot:** `@perso_streamvault_bot` (Layer 181 MTProto connection active)
+* **Production Host:** Oracle Cloud Infrastructure Always Free VM (`140.245.193.224`, Hyderabad `ap-hyderabad-1`)
+* **Process Manager:** Linux Systemd service `streamvault.service` with auto-restart on boot/crash
+* **Anti-Idle Protection:** Native `oracle-keepalive.timer` running gentle CPU & network keepalives every 3 hours
 * **Database:** MongoDB Atlas M0 Cluster (`stream-vault` database on AWS Mumbai)
 * **HTTP Web Streamer:** Asynchronous `aiohttp` Range-Request server running on port `7860`
-* **Public Gateway:** Automated Cloudflare HTTPS Tunnel (`bot/utils/tunnel.py` + `bin/cloudflared.exe`)
-* **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
+* **Public Gateway:** Direct Public IPv4 streaming on `http://140.245.193.224:7860`
+* **Crypto Acceleration:** Hardware-accelerated MTProto AES via `cryptg` and `tgcrypto` (`bot/utils/crypto_patch.py`), speeding up media transfers >8,000x and eliminating timeouts
 * **Cloud Torrent Leeching (Phase 2):** Dual-engine architecture operational:
   - 1-Tap automated GitHub Actions cloud runner (`.github/workflows/leech.yml` + `scripts/cloud_leech.py`)
   - Queue-driven Google Colab batch worker (`notebooks/leech_colab.ipynb`)
@@ -42,6 +45,39 @@ Whenever you reboot your PC or resume work:
    Telegram Bot Online: @perso_streamvault_bot (ID: 9008960250)
    StreamVault Engine is fully operational! Listening for requests...
    ```
+
+---
+
+## ☁️ Managing StreamVault on Oracle Cloud VM
+
+Connect from PowerShell:
+```powershell
+ssh -i "$HOME\Downloads\ssh-key-2026-11-03.key" ubuntu@140.245.193.224
+```
+
+### Essential Linux Commands for StreamVault:
+* **View Live Streaming Logs (Real-Time):**
+  ```bash
+  journalctl -u streamvault -f
+  ```
+  *(Press `Ctrl + C` to stop watching logs).*
+* **View Last 50 Lines of Logs:**
+  ```bash
+  journalctl -u streamvault -n 50 --no-pager
+  ```
+* **Check Service Status:**
+  ```bash
+  sudo systemctl status streamvault
+  ```
+* **Restart Bot (After Code Changes):**
+  ```bash
+  cd ~/stream-vault && git pull && sudo systemctl restart streamvault
+  ```
+* **Stop / Start Bot:**
+  ```bash
+  sudo systemctl stop streamvault
+  sudo systemctl start streamvault
+  ```
 
 ---
 
