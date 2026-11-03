@@ -5,8 +5,10 @@ import time
 import html
 import shutil
 import asyncio
+import hashlib
 import logging
 import datetime
+import subprocess
 import requests
 from hydrogram import Client
 import config
@@ -236,13 +238,6 @@ class VMLeechManager:
                 )
 
                 # Find videos & stage for upload
-                send_telegram_progress(
-                    config.BOT_TOKEN, chat_id, message_id,
-                    title=title, size=size, seeds=seeds, magnet=magnet,
-                    pct=100,
-                    status_text="⚙️ <b>Download Complete!</b> Inspecting video files &amp; uploading to Vault..."
-                )
-
                 video_files = find_all_video_files(task_dir)
                 from bot.utils.streamer import get_bot_instance
                 bot: Client = get_bot_instance()
@@ -250,15 +245,60 @@ class VMLeechManager:
                 if not bot:
                     raise RuntimeError("Bot instance is not initialized.")
 
+                # Phase 1: Deliver Instant Stream Links immediately (0s wait time!)
+                pre_unique_map: dict[str, str] = {}
+                for vid_idx, video_file in enumerate(video_files, start=1):
+                    raw_fn = os.path.basename(video_file)
+                    raw_sz = os.path.getsize(video_file)
+                    unique_id = hashlib.md5(f"{task_id}_{vid_idx}_{raw_fn}".encode()).hexdigest()[:12]
+                    pre_unique_map[video_file] = unique_id
+
+                    # Save preliminary record with local_path for instant SSD playback
+                    pre_doc = {
+                        "file_name": raw_fn,
+                        "file_size": raw_sz,
+                        "file_id": "",
+                        "unique_id": unique_id,
+                        "source_chat_id": config.LOG_CHANNEL_ID,
+                        "local_path": video_file,
+                        "mime_type": "video/mp4",
+                        "caption": f"🎬 {raw_fn}"
+                    }
+                    await db.save_file(pre_doc)
+
+                    if user_id:
+                        stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
+                        instant_notice = (
+                            f"⚡ **Instant Stream Link Ready! (0s Wait)**\n\n"
+                            f"🎬 **File:** `{raw_fn}`\n"
+                            f"📦 **Size:** `{format_size(raw_sz)}`\n"
+                            f"🚀 **Fast SSD Local Stream (VLC/Browser):**\n`{stream_link}`\n\n"
+                            f"⏳ *Archiving to your Telegram Cloud Vault in background for permanent storage...*"
+                        )
+                        try:
+                            await bot.send_message(chat_id=user_id, text=instant_notice, disable_web_page_preview=True)
+                        except Exception as e:
+                            logger.warning(f"Could not send instant stream message: {e}")
+
+                send_telegram_progress(
+                    config.BOT_TOKEN, chat_id, message_id,
+                    title=title, size=size, seeds=seeds, magnet=magnet,
+                    pct=100,
+                    status_text="⚡ <b>Instant Stream Link Sent!</b> Now uploading to Telegram Vault in background..."
+                )
+
+                # Phase 2: Upload to Telegram Cloud Vault for permanent retention
                 for vid_idx, video_file in enumerate(video_files, start=1):
                     file_label = f"[{vid_idx}/{len(video_files)}] " if len(video_files) > 1 else ""
                     parts = split_video_lossless(video_file)
                     is_split = len(parts) > 1
+                    base_unique_id = pre_unique_map.get(video_file, "")
 
                     for part_idx, part_path in enumerate(parts, start=1):
                         part_name = os.path.basename(part_path)
                         part_size = os.path.getsize(part_path)
                         part_label = f" (Part {part_idx}/{len(parts)})" if is_split else ""
+                        actual_unique_id = base_unique_id if not is_split else hashlib.md5(f"{base_unique_id}_p{part_idx}".encode()).hexdigest()[:12]
 
                         logger.info(f"{file_label}Uploading {part_name}{part_label} to Telegram Vault...")
                         send_telegram_progress(
@@ -274,14 +314,13 @@ class VMLeechManager:
                         )
                         media = uploaded.video or uploaded.document
                         vault_file_id = media.file_id
-                        unique_id = media.file_unique_id
 
-                        # Permanent record in MongoDB Atlas
+                        # Update MongoDB Atlas record with permanent Telegram file_id
                         file_doc = {
                             "file_name": part_name,
                             "file_size": part_size,
                             "file_id": vault_file_id,
-                            "unique_id": unique_id,
+                            "unique_id": actual_unique_id,
                             "source_chat_id": config.LOG_CHANNEL_ID,
                             "local_path": part_path,
                             "mime_type": "video/mp4",
@@ -291,11 +330,11 @@ class VMLeechManager:
 
                         # Deliver directly to user in Telegram
                         if user_id:
-                            stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
+                            stream_link = f"{config.STREAM_URL}/stream/{actual_unique_id}"
                             msg_caption = (
-                                f"✅ **Leech Complete:** `{part_name}`{part_label}\n\n"
+                                f"✅ **Vault Backup Complete:** `{part_name}`{part_label}\n\n"
                                 f"📦 **Size:** `{format_size(part_size)}`\n"
-                                f"🔗 **Direct Stream / Download Link:**\n`{stream_link}`"
+                                f"🔗 **Permanent Stream / Download Link:**\n`{stream_link}`"
                             )
                             try:
                                 await bot.send_cached_media(
@@ -310,7 +349,7 @@ class VMLeechManager:
                     config.BOT_TOKEN, chat_id, message_id,
                     title=title, size=size, seeds=seeds, magnet=magnet,
                     pct=100,
-                    status_text="🎉 <b>Leech &amp; Vault Ingestion Complete!</b>\nVideo file delivered below with streaming link!"
+                    status_text="🎉 <b>Leech &amp; Vault Backup Complete!</b>\nVideo file delivered below. Permanent streaming link active!"
                 )
                 logger.info(f"[Oracle VM Leech] Finished successfully: {title}")
 
