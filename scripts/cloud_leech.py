@@ -120,13 +120,18 @@ def run_aria2c(
     cmd = [
         aria2,
         "--seed-time=0",
-        "--bt-stop-timeout=120",
-        "--bt-tracker-connect-timeout=10",
-        "--bt-tracker-timeout=10",
-        "--bt-max-peers=100",
+        "--bt-stop-timeout=600",
+        "--bt-tracker-connect-timeout=30",
+        "--bt-tracker-timeout=30",
+        "--bt-max-peers=250",
         "--enable-dht=true",
-        "--dht-listen-port=6881",
+        "--enable-dht6=false",
+        "--dht-listen-port=50101-50109",
+        "--listen-port=50101-50109",
+        "--dht-entry-point=router.bittorrent.com:6881",
         "--enable-peer-exchange=true",
+        "--bt-enable-lpd=true",
+        "--file-allocation=none",
         "--max-connection-per-server=16",
         "--split=16",
         "--min-split-size=1M",
@@ -147,8 +152,10 @@ def run_aria2c(
     dl_pattern = re.compile(r'DL:([^\s]+)')
     eta_pattern = re.compile(r'ETA:([^\s\]]+)')
 
+    start_time = time.time()
     last_update_time = 0.0
     last_pct = -1
+    metadata_notified = False
     milestones_hit = set()
 
     for line in proc.stdout:
@@ -157,6 +164,18 @@ def run_aria2c(
             continue
 
         pct_match = pct_pattern.search(line_str)
+        now = time.time()
+
+        # If in metadata resolution phase after 10 seconds, notify user
+        if not metadata_notified and (now - start_time >= 10.0) and last_pct < 0:
+            metadata_notified = True
+            send_telegram_progress(
+                bot_token, chat_id, message_id,
+                title=title, size=size, seeds=seeds, magnet=magnet,
+                pct=0,
+                status_text="🔍 <b>Connecting to BitTorrent swarm & discovering peer metadata...</b>"
+            )
+
         if pct_match:
             try:
                 pct = int(pct_match.group(1))

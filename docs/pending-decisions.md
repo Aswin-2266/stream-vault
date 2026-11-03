@@ -60,3 +60,69 @@ Currently, StreamVault uses lossless FFmpeg splitting (`split_video`) to divide 
      2. Cloud Leech with current lossless multi-part split for permanent Telegram storage.
 2. **Medium Term (Next Phase):**
    - Enable Option 1 (Oracle Direct Stream Gateway) so files >2 GB stream directly from the Oracle VM as a single video link without splitting.
+
+---
+
+## Pending Decision 2: Cloud Leech Reliability & P2P Architecture
+
+### Context & Problem Statement
+During initial testing of the GitHub Actions cloud runner, torrent downloads for regional Indian releases (TamilBlasters, TamilMV) stalled and timed out after 122 seconds with:
+`RuntimeError: Torrent download stalled or timed out (no active seeders available)`.
+
+### Root Cause Analysis
+1. **Aggressive Timeout:** aria2c was configured with `--bt-stop-timeout=120`. When resolving magnet links, downloading metadata from the DHT swarm often takes 2–5 minutes at 0 B/s file transfer speed, causing aria2c to terminate prematurely before reaching the actual download stage.
+2. **Datacenter Firewall & CGNAT Mismatch:** Microsoft Azure (where GitHub Actions runs) filters inbound UDP traffic on standard BitTorrent ports (6881). Meanwhile, residential seeders in India (JioFiber, Airtel Xstream) are behind Carrier-Grade NAT (CGNAT). When both peers are behind NAT with no open inbound ports, they cannot establish direct P2P connections unless a peer with a dedicated public IP / Seedbox is present in the swarm.
+
+---
+
+### Implementation Status of Evaluated Options
+
+#### Option 1: Optimized GitHub Actions Runner (APPLIED & ACTIVE)
+- **Status:** **Implemented & Deployed.**
+- **Changes applied in `scripts/cloud_leech.py`:**
+  - Extended `--bt-stop-timeout` from 120s to **600s (10 minutes)** to grant ample time for metadata discovery and handshaking.
+  - Added global DHT bootstrap router: `--dht-entry-point=router.bittorrent.com:6881`.
+  - Shifted ports to `--dht-listen-port=50101-50109` and `--listen-port=50101-50109` to circumvent common datacenter blocks on port 6881.
+  - Enabled `--file-allocation=none` to eliminate multi-minute zero-allocation stalls.
+  - Increased tracker connection timeouts to 30s and enabled Local Peer Discovery (`--bt-enable-lpd=true`).
+  - Added Telegram progress update during metadata resolution: `🔍 Connecting to BitTorrent swarm & discovering peer metadata...`.
+
+---
+
+#### Option 2: Native Oracle Cloud VM Leeching Worker (PENDING DECISION - PLANNED)
+- **Status:** **Architected for future activation.**
+- **Why it solves the problem permanently:**
+  - The Oracle Always Free VM (`140.245.193.224`) possesses a **static, dedicated public IPv4 address**.
+  - Inbound ports `6881-6889` (or `50000-50100`) can be opened directly in the OCI Security List and Ubuntu `iptables`.
+  - Because the Oracle VM has an open public listening port, **any seeder (even home users on Jio/Airtel CGNAT) can initiate inbound connections directly to your VM**.
+  - 100 GB NVMe disk and 10 TB free monthly egress bandwidth allow 24/7 background leeching without runner time limits.
+- **Implementation Blueprint:**
+  - Deploy a lightweight systemd daemon `streamvault-leech.service` on the Oracle VM.
+  - The daemon monitors MongoDB Atlas `leech_queue` for new tasks submitted via the bot.
+  - Once downloaded, it either copies directly to `/var/streamvault/media/` for 0-wait local streaming or uploads to Telegram Vault.
+
+---
+
+#### Option 3: Debrid Cloud Integration (PENDING DECISION - IN-DEPTH ANALYSIS)
+- **Status:** **Evaluated with real-world 2025/2026 internet data.**
+- **Comparison of Free vs. Paid Debrid Services:**
+
+| Provider | Tier | Storage / Task Limits | Rate Limits & Cooldowns | API Usability for Bot | Real-World Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **TorBox** | **Free** | 10 GB max per torrent | **1 download per 24 hours**;<br>Max **10 downloads/month** | Official REST API | ❌ **Too restrictive for automated bots.** The 1-per-day cooldown blocks consecutive searches/downloads. |
+| **Seedr.cc** | **Free** | **2.0 GB** baseline storage (expandable to ~4 GB via social tasks) | 1 parallel download slot | Unofficial / REST API | ❌ **Incompatible with 1080p movies.** Nearly all 1080p Indian releases are 2.2–4.5 GB, triggering immediate "Storage full" errors. |
+| **PikPak** | **Free** | **6.0 GB** total storage | 3–5 cloud download tasks/day | Reverse-engineered API only | ⚠️ **Good size limit, poor bot API.** Fits 1080p releases, but lacks an open developer API and requires account rotation. |
+| **Real-Debrid** | **Paid** (~₹250/mo or $3/mo) | **Unlimited** (100 GB+ files) | **Unlimited** high-speed caching | Official, robust REST API | ✅ **Gold standard.** Un-restricts torrents in 2 seconds from 10 Gbps CDN caches. Zero P2P seeding issues, 100% reliable. |
+
+- **Conclusion for Option 3:**
+  - **Free debrid tiers** (TorBox, Seedr, PikPak) enforce heavy rate limits (1 per day on TorBox) or small storage ceilings (2 GB on Seedr) that make them impractical as an automated bot backend.
+  - If third-party cloud caching is desired in the future, **Real-Debrid** (~₹250/month) is the only provider that provides instant 2-second caching and reliable automation without maintenance headaches.
+
+---
+
+#### Option 4: Instant Torrent Finder with Mobile Local Download (ACTIVE)
+- **Status:** **Implemented & Fully Operational.**
+- Tapping any release in search options displays the full release details and a 1-tap copyable `magnet:?xt=...` code block.
+- Users can copy the magnet with a single tap and download directly via **1DM+ or Flud** on Android (or qBittorrent on PC).
+- Mobile cellular networks (Jio 5G / Airtel 5G) route peer-to-peer traffic directly between domestic peers, bypassing datacenter firewall limitations.
+
