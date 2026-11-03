@@ -12,6 +12,7 @@ from bot.utils.streamer import set_bot_instance, start_web_server
 from bot.utils.tunnel import start_tunnel, stop_tunnel
 from bot.utils.vm_leech import vm_leech_manager
 from bot.utils.cleaner import start_storage_cleaner
+from bot.utils.userbot import userbot_harvester
 
 # Setup structured logging
 logging.basicConfig(
@@ -63,6 +64,9 @@ async def main():
     start_storage_cleaner()
     logger.info("Oracle VM Native Leech Worker & Storage Cleaner online!")
 
+    # Step 5c: Start Telegram Userbot Movie Harvester (if configured)
+    await userbot_harvester.start()
+
     # Step 6: Initial channel auto-indexer (if configured in .env)
     if config.CHANNELS_TO_INDEX:
         logger.info(f"Auto-indexing {len(config.CHANNELS_TO_INDEX)} channels configured on startup...")
@@ -80,6 +84,7 @@ async def main():
     # Clean shutdown
     logger.info("Shutting down StreamVault...")
     stop_tunnel()
+    await userbot_harvester.stop()
     await bot.stop()
     await web_runner.cleanup()
 

@@ -1,5 +1,11 @@
 import unittest
-from bot.handlers.search import SEARCH_CACHE, render_torrent_view, get_query_id
+from bot.handlers.search import (
+    SEARCH_CACHE,
+    render_torrent_view,
+    render_channel_view,
+    render_vault_view,
+    get_query_id
+)
 
 class TestSearchSelectionFlow(unittest.TestCase):
     def setUp(self):
@@ -8,7 +14,27 @@ class TestSearchSelectionFlow(unittest.TestCase):
             "query": "Inception",
             "clean_title": "Inception",
             "suggested_title": None,
-            "vault_results": [],
+            "vault_results": [
+                {
+                    "file_name": "Inception.2010.1080p.Vault.mp4",
+                    "file_size": 2000000000,
+                    "file_id": "vlt_fid_1",
+                    "unique_id": "vlt_uniq_1"
+                }
+            ],
+            "channel_results": [
+                {
+                    "file_name": "Inception (2010) [1080p - Telugu + Tamil + Hindi].mkv",
+                    "quality": "1080p",
+                    "languages": "Telugu + Tamil + Hindi",
+                    "size": "2.10 GB",
+                    "size_bytes": 2254857830,
+                    "source_chat_title": "TamilBlasters HD",
+                    "source_chat_id": -1001234567,
+                    "message_id": 999,
+                    "harvest_id": "hid_inc_1080"
+                }
+            ],
             "torrent_results": [
                 {
                     "title": "Inception.2010.1080p.BluRay.x264",
@@ -32,6 +58,7 @@ class TestSearchSelectionFlow(unittest.TestCase):
                 }
             ],
             "vault_page": 0,
+            "channel_page": 0,
             "torrent_page": 0
         }
 
@@ -40,7 +67,6 @@ class TestSearchSelectionFlow(unittest.TestCase):
         self.assertIn("Inception", text)
         self.assertIsNotNone(markup)
 
-        # Check button callback data starts with sel_tor_
         sel_callbacks = []
         for row in markup.inline_keyboard:
             for btn in row:
@@ -50,6 +76,40 @@ class TestSearchSelectionFlow(unittest.TestCase):
         self.assertEqual(len(sel_callbacks), 2)
         self.assertTrue(any("abc123hash" in c for c in sel_callbacks))
         self.assertTrue(any("def456hash" in c for c in sel_callbacks))
+
+    def test_render_channel_view_has_harvest_selection(self):
+        text, markup = render_channel_view(self.qid, page=0)
+        self.assertIn("Telegram Movie Channels for", text)
+        self.assertIn("TamilBlasters HD", text)
+        self.assertIsNotNone(markup)
+
+        chn_callbacks = []
+        for row in markup.inline_keyboard:
+            for btn in row:
+                if btn.callback_data and btn.callback_data.startswith("sel_chn_"):
+                    chn_callbacks.append(btn.callback_data)
+
+        self.assertEqual(len(chn_callbacks), 1)
+        self.assertIn("hid_inc_1080", chn_callbacks[0])
+
+    def test_tab_switchers_present_across_views(self):
+        # Vault view should have switchers to Channels and Torrents
+        _, v_markup = render_vault_view(self.qid, page=0)
+        v_callbacks = [b.callback_data for r in v_markup.inline_keyboard for b in r]
+        self.assertTrue(any("sw_chn_" in c for c in v_callbacks))
+        self.assertTrue(any("sw_tor_" in c for c in v_callbacks))
+
+        # Channel view should have switchers to Vault and Torrents
+        _, c_markup = render_channel_view(self.qid, page=0)
+        c_callbacks = [b.callback_data for r in c_markup.inline_keyboard for b in r]
+        self.assertTrue(any("sw_vlt_" in c for c in c_callbacks))
+        self.assertTrue(any("sw_tor_" in c for c in c_callbacks))
+
+        # Torrent view should have switchers to Vault and Channels
+        _, t_markup = render_torrent_view(self.qid, page=0)
+        t_callbacks = [b.callback_data for r in t_markup.inline_keyboard for b in r]
+        self.assertTrue(any("sw_vlt_" in c for c in t_callbacks))
+        self.assertTrue(any("sw_chn_" in c for c in t_callbacks))
 
 if __name__ == "__main__":
     unittest.main()

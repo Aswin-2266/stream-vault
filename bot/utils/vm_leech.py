@@ -35,7 +35,8 @@ def send_telegram_progress(
     pct: int,
     speed: str = "",
     eta: str = "",
-    status_text: str = ""
+    status_text: str = "",
+    is_failed: bool = False
 ):
     """Sends a fast, non-blocking HTTP REST call to edit the Telegram message with live progress."""
     if not (bot_token and chat_id and message_id):
@@ -72,12 +73,13 @@ def send_telegram_progress(
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
+    keyboard = []
     if info_hash:
-        payload["reply_markup"] = {
-            "inline_keyboard": [
-                [{"text": "📋 Copy Magnet Link", "callback_data": f"copy_mag_{info_hash}"}]
-            ]
-        }
+        keyboard.append([{"text": "📋 Copy Magnet Link", "callback_data": f"copy_mag_{info_hash}"}])
+        if is_failed:
+            keyboard.append([{"text": "📡 Search Telegram Channels for this Movie", "callback_data": f"srch_chn_{info_hash}"}])
+    if keyboard:
+        payload["reply_markup"] = {"inline_keyboard": keyboard}
     try:
         res = requests.post(url, json=payload, timeout=5)
         if res.status_code == 429:
@@ -308,11 +310,13 @@ class VMLeechManager:
 
             except Exception as e:
                 logger.error(f"[Oracle VM Leech] Failed for {title}: {e}")
+                fail_text = f"❌ <b>Cloud Leech Failed:</b> {html.escape(str(e))}\n\n💡 <b>Alternative:</b> Tap below to search Telegram movie channels for an instant 2-second cloud copy!"
                 send_telegram_progress(
                     config.BOT_TOKEN, chat_id, message_id,
                     title=title, size=size, seeds=seeds, magnet=magnet,
                     pct=0,
-                    status_text=f"❌ <b>Cloud Leech Failed:</b> {html.escape(str(e))}"
+                    status_text=fail_text,
+                    is_failed=True
                 )
             finally:
                 self.active_tasks.pop(task_id, None)

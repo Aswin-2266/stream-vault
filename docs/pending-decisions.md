@@ -126,3 +126,77 @@ During initial testing of the GitHub Actions cloud runner, torrent downloads for
 - Users can copy the magnet with a single tap and download directly via **1DM+ or Flud** on Android (or qBittorrent on PC).
 - Mobile cellular networks (Jio 5G / Airtel 5G) route peer-to-peer traffic directly between domestic peers, bypassing datacenter firewall limitations.
 
+---
+
+## Pending Decision 3: Alternative Content Sourcing & Streaming Engines (Beyond Torrents)
+
+### Context & Problem Statement
+When searching for older movies or regional dubbed content (e.g., *The Shawshank Redemption* in Tamil/Telugu or older 90s/2000s classics), BitTorrent swarms often have **0 active seeders**, causing downloads to stall indefinitely regardless of open ports or timeout settings. 
+
+To eliminate dead-end searches and stalled downloads, alternative acquisition and streaming pipelines were evaluated.
+
+---
+
+### Comparative Evaluation of Content Delivery Methods
+
+| Method | Speed | Availability of Tamil/Telugu Dubs | Reliability | Cost / Requirements |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. P2P Torrents (Current)** | Fast if $\ge 20$ seeds; Stalls if $<10$ seeds | High (Tamilblasters / TamilMV) | Low on older movies (Dead swarms) | 100% Free |
+| **2. Debrid Cloud (TorBox / RD)** | **Instant (0.5s cached)** | **Very High** (almost everything cached) | **Very High** | Free tier limited; Paid ~$3.50/mo |
+| **3. Web Scrapers (VidSrc)** | **Instant** | **Low to Medium** (mostly English/Hindi) | **Medium** | **100% Free** |
+| **4. Telegram Userbot (Inside TG)** | **Instant (1-2s cloud copy)** | **Highest** (Telegram is king for regional content) | **High** | **100% Free** (Needs phone session) |
+
+---
+
+### Detailed Analysis of Evaluated Options
+
+#### Option 1: Debrid Cloud Integration (TorBox / Real-Debrid)
+- **Status:** **Evaluated (Pending Decision for paid vs. limited free integration).**
+- **Characteristics:**
+  - **Speed:** Instant (0.5s cached response).
+  - **Availability:** Very High (almost all popular and regional torrent releases are pre-cached).
+  - **Reliability:** Very High (no relying on active seeders or open firewall ports).
+  - **Cost / Requirements:** Free tier limited; Paid ~$3.50/month (~₹250/mo).
+- **How it works:**
+  - Debrid servers (Real-Debrid, TorBox) operate massive petabyte storage clusters. Whenever any user worldwide requests a torrent, it is downloaded once and permanently stored on high-speed cloud CDNs.
+  - When our bot checks a torrent magnet against the Debrid API:
+    - If already cached (~95% of Tamilblasters/TamilMV releases), it bypasses P2P downloading completely.
+    - It immediately returns a direct, unmetered **1 Gbps HTTPS stream / download link** in **0.5 seconds**.
+- **Tier Differences:**
+  - **TorBox (Free):** 10 GB torrent limit, but restricted to **1 download per 24 hours** (max 10/month), suitable only as an occasional emergency fallback.
+  - **Real-Debrid (Paid, ~$3.50/mo):** Unlimited downloads, uncapped multi-gigabit bandwidth, near 100% cache hit rate for regional films.
+- **Bot Integration Blueprint:**
+  - Add an inline button: `[⚡ Instant Stream via Debrid]`.
+  - Bot checks hash cache status; if cached, replies instantly with the direct streaming link without launching any background download runner.
+
+#### Option 2: Free Web Streaming Scrapers (VidSrc / SuperEmbed / HLS)
+- **Status:** **Evaluated (Pending Decision for 100% free web streaming fallback).**
+- **Characteristics:**
+  - **Speed:** Instant (direct video stream).
+  - **Availability:** Low to Medium (mostly English and popular Hindi content; regional Tamil/Telugu dubs are rare).
+  - **Reliability:** Medium (embed domains frequently rotate or enable anti-bot protections).
+  - **Cost / Requirements:** **100% Free Forever**.
+- **How it works:**
+  - Web scraping engines resolve streaming links from free movie indexers (VidSrc, SuperEmbed, 2Embed) using IMDb or TMDB movie IDs (e.g., `tt0111161`).
+  - Scrapes the direct `.m3u8` (HLS adaptive stream) or `.mp4` CDN link.
+  - Users can stream immediately in their web browser or open the link directly in VLC Player without downloading any torrent or consuming cloud storage.
+- **Key Limitations:**
+  - Free web scrapers rarely cater to South Indian regional audio languages (Tamil, Telugu, Malayalam, Kannada), focusing heavily on Hollywood (English) and Bollywood (Hindi).
+  - Embed providers regularly change player domain names and iframe obfuscation scripts, requiring occasional maintenance.
+- **Bot Integration Blueprint:**
+  - When P2P torrent seeders are 0 or user selects instant web view, offer an inline button: `[🌐 Instant Web Stream (VidSrc)]`.
+  - Opens direct in-browser player or returns VLC-compatible HLS stream link.
+
+#### Option 3: Telegram Userbot Ingestion (Native TG Cloud Library)
+- **Status:** **Evaluated (Highest potential for 100% free regional South Indian content).**
+- **Characteristics:**
+  - **Speed:** Instant (1–2 second cloud-to-cloud file copy).
+  - **Availability:** Highest (Telegram is the largest active library for Tamil, Telugu, and Hindi dubbed movies).
+  - **Reliability:** High (files are already hosted on Telegram's high-speed media servers).
+  - **Cost / Requirements:** **100% Free** (Requires a Telegram user session string / phone authorization).
+- **How it works:**
+  - Powered by a secondary Telegram account via Hydrogram `SESSION_STRING`.
+  - When a user searches for a movie not yet in the private vault, the userbot executes `client.search_global("Movie Name Tamil")` across public channels.
+  - Copies the discovered `.mkv` file directly to the private Vault channel in 1–2 seconds with **0 MB mobile data consumption**.
+
+

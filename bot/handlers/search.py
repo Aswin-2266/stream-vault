@@ -1,12 +1,17 @@
 import math
+import html
 import hashlib
+import logging
 from hydrogram import Client, filters
 from hydrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import config
 from bot.utils.database import db
 from bot.utils.torrent import search_torrents, extract_language_and_title, get_imdb_suggestion, get_cached_torrent, LANGUAGE_MAP
+from bot.utils.userbot import userbot_harvester
 from bot.handlers.start import is_authorized
 from bot.handlers.indexer import format_size
+
+logger = logging.getLogger("SearchHandler")
 
 # In-memory search session cache: qid -> search metadata & results
 SEARCH_CACHE: dict[str, dict] = {}
@@ -20,8 +25,9 @@ def render_vault_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarku
     if not data:
         return "❌ Search session expired. Please type the movie title again.", None
 
-    vault_list = data["vault_results"]
-    tor_count = len(data["torrent_results"])
+    vault_list = data.get("vault_results", [])
+    channel_list = data.get("channel_results", [])
+    tor_list = data.get("torrent_results", [])
     title = data["clean_title"]
     suggested = data.get("suggested_title")
 
@@ -81,11 +87,91 @@ def render_vault_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarku
             nav_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"pv_{page + 1}_{qid}"))
         buttons.append(nav_row)
 
-    # Tab Switcher Row
-    tab_btn_text = f"⚡ Switch to Cloud Torrents ({tor_count})" if tor_count > 0 else "⚡ Search Cloud Torrents"
-    buttons.append([InlineKeyboardButton(tab_btn_text, callback_data=f"sw_tor_{qid}")])
+    # Tab Switcher Row (Channels & Torrents)
+    tab_row = []
+    chn_text = f"📡 Channels ({len(channel_list)})" if channel_list else "📡 Search Channels"
+    tab_row.append(InlineKeyboardButton(chn_text, callback_data=f"sw_chn_{qid}"))
+    tor_text = f"⚡ Torrents ({len(tor_list)})" if tor_list else "⚡ Search Torrents"
+    tab_row.append(InlineKeyboardButton(tor_text, callback_data=f"sw_tor_{qid}"))
+    buttons.append(tab_row)
 
     # Optional "Did you mean?" suggestion
+    if suggested:
+        lines.append(f"\n💡 *Did you mean:* **{suggested}**?")
+        buttons.append([InlineKeyboardButton(f"💡 Search '{suggested[:22]}'", callback_data=f"sug_{qid}")])
+
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+def render_channel_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMarkup | None]:
+    data = SEARCH_CACHE.get(qid)
+    if not data:
+        return "❌ Search session expired. Please type the movie title again.", None
+
+    channel_list = data.get("channel_results", [])
+    vault_list = data.get("vault_results", [])
+    tor_list = data.get("torrent_results", [])
+    title = data["clean_title"]
+    suggested = data.get("suggested_title")
+
+    total_items = len(channel_list)
+    total_pages = max(1, math.ceil(total_items / 5))
+    page = max(0, min(page, total_pages - 1))
+    data["channel_page"] = page
+
+    start_idx = page * 5
+    page_items = channel_list[start_idx:start_idx + 5]
+
+    lines = [
+        f"📡 **Telegram Movie Channels for:** `{title}`",
+        f"📄 *Page {page + 1} of {total_pages} • {total_items} releases • ⚡ Instant 2s Cloud Copy*\n"
+    ]
+
+    buttons = []
+    button_row = []
+
+    for i, item in enumerate(page_items, start=1):
+        file_name = item.get("file_name", "Unknown Release")
+        quality = item.get("quality", "HD")
+        languages = item.get("languages", "Original Audio")
+        size = item.get("size", "N/A")
+        chat_title = item.get("source_chat_title", "Movie Channel")
+        hid = item.get("harvest_id")
+
+        lines.append(
+            f"{i}️⃣ **{file_name[:65]}**\n"
+            f"   📺 **Source:** `{chat_title[:30]}`\n"
+            f"   🔊 **Audio:** `{languages}`\n"
+            f"   📦 **Specs:** `{quality}` • `{size}` • ⚡ 0 MB Hotspot Data\n"
+        )
+
+        btn_label = f"🎬 #{i} ({quality})"
+        button_row.append(InlineKeyboardButton(btn_label, callback_data=f"sel_chn_{hid}_{qid}_{page}"))
+        if len(button_row) == 2:
+            buttons.append(button_row)
+            button_row = []
+
+    if button_row:
+        buttons.append(button_row)
+
+    # Navigation Row (if multiple pages)
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton("◀️ Prev", callback_data=f"pc_{page - 1}_{qid}"))
+        nav_row.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data=f"noop_{qid}"))
+        if page < total_pages - 1:
+            nav_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"pc_{page + 1}_{qid}"))
+        buttons.append(nav_row)
+
+    # Tab Switcher Row (Vault & Torrents)
+    tab_row = []
+    vlt_text = f"📁 Vault ({len(vault_list)})" if vault_list else "📁 Vault (0)"
+    tab_row.append(InlineKeyboardButton(vlt_text, callback_data=f"sw_vlt_{qid}" if vault_list else f"noop_{qid}"))
+    tor_text = f"⚡ Torrents ({len(tor_list)})" if tor_list else "⚡ Search Torrents"
+    tab_row.append(InlineKeyboardButton(tor_text, callback_data=f"sw_tor_{qid}"))
+    buttons.append(tab_row)
+
+    # Optional suggestion
     if suggested:
         lines.append(f"\n💡 *Did you mean:* **{suggested}**?")
         buttons.append([InlineKeyboardButton(f"💡 Search '{suggested[:22]}'", callback_data=f"sug_{qid}")])
@@ -97,8 +183,9 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
     if not data:
         return "❌ Search session expired. Please type the movie title again.", None
 
-    tor_list = data["torrent_results"]
-    vault_count = len(data["vault_results"])
+    tor_list = data.get("torrent_results", [])
+    vault_list = data.get("vault_results", [])
+    channel_list = data.get("channel_results", [])
     title = data["clean_title"]
     suggested = data.get("suggested_title")
 
@@ -151,11 +238,13 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
             nav_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"pt_{page + 1}_{qid}"))
         buttons.append(nav_row)
 
-    # Tab Switcher Row
-    if vault_count > 0:
-        buttons.append([InlineKeyboardButton(f"📁 Switch to Vault Files ({vault_count})", callback_data=f"sw_vlt_{qid}")])
-    else:
-        buttons.append([InlineKeyboardButton("📁 Vault Files (0 in library)", callback_data=f"noop_{qid}")])
+    # Tab Switcher Row (Vault & Channels)
+    tab_row = []
+    vlt_text = f"📁 Vault ({len(vault_list)})" if vault_list else "📁 Vault (0)"
+    tab_row.append(InlineKeyboardButton(vlt_text, callback_data=f"sw_vlt_{qid}" if vault_list else f"noop_{qid}"))
+    chn_text = f"📡 Channels ({len(channel_list)})" if channel_list else "📡 Search Channels"
+    tab_row.append(InlineKeyboardButton(chn_text, callback_data=f"sw_chn_{qid}"))
+    buttons.append(tab_row)
 
     # Optional "Did you mean?" suggestion
     if suggested:
@@ -167,16 +256,15 @@ def render_torrent_view(qid: str, page: int = 0) -> tuple[str, InlineKeyboardMar
 @Client.on_message(filters.text & filters.private)
 async def search_handler(client: Client, message: Message):
     """
-    Handles user movie searches with Tabbed Paginated View:
-    1. Extracts language tokens (e.g. 'tamil') without modifying movie title.
-    2. Searches MongoDB vault and multi-engine torrents using exact user title.
-    3. Fetches optional 'Did you mean?' suggestion without forcing any rewrites.
+    Handles user movie searches with Multi-Tab Paginated Gateway:
+    1. Instant Vault Search (0ms local/cloud library).
+    2. Telegram Movie Channel Harvester (1-2s cloud-to-cloud copy).
+    3. Multi-Engine Cloud Torrents (Oracle VM & GitHub Actions).
     """
     if not is_authorized(message.from_user.id):
         return
 
     text = (message.text or "").strip()
-    # Ignore all slash commands (/errors, /logs, /start, /index, etc.) unless explicitly /search
     if text.startswith("/") and not text.lower().startswith("/search"):
         return
 
@@ -186,12 +274,10 @@ async def search_handler(client: Client, message: Message):
             await message.reply_text("ℹ️ Please enter at least 2 characters to search.\nUsage: `/search <title>`")
         return
 
-    # Extract language tokens without auto-correcting title
     clean_title, detected_lang = extract_language_and_title(query)
     search_term = clean_title if clean_title else query
     qid = get_query_id(query)
 
-    # Optional suggestion lookup (never forced)
     suggested = get_imdb_suggestion(search_term)
 
     status_msg = await message.reply_text(f"🔍 Searching library for `{search_term}`...")
@@ -205,23 +291,51 @@ async def search_handler(client: Client, message: Message):
             return any(a in fn for a in aliases) or "multi" in fn or "dual" in fn
         vault_results.sort(key=vault_lang_score, reverse=True)
 
-    # If vault has results, render Vault Tab immediately (0ms delay)
+    # Check Telegram Channels via Userbot Harvester (if active)
+    channel_results = []
+    if userbot_harvester.is_available():
+        try:
+            channel_results = await userbot_harvester.search_channels(search_term, limit=20)
+        except Exception as e:
+            logger.warning(f"Error during channel harvest search: {e}")
+
+    torrent_results = []
+
+    # Scenario 1: Vault has existing files (fastest, 0ms latency)
     if vault_results:
-        torrent_results = search_torrents(query, limit=35)
         SEARCH_CACHE[qid] = {
             "query": query,
             "clean_title": search_term,
             "suggested_title": suggested,
             "vault_results": vault_results,
+            "channel_results": channel_results,
             "torrent_results": torrent_results,
             "vault_page": 0,
+            "channel_page": 0,
             "torrent_page": 0
         }
         text, markup = render_vault_view(qid, page=0)
         await status_msg.edit_text(text, reply_markup=markup)
+
+    # Scenario 2: Vault empty, but found on Telegram Channels! (Instant 2s cloud-to-cloud copy)
+    elif channel_results:
+        SEARCH_CACHE[qid] = {
+            "query": query,
+            "clean_title": search_term,
+            "suggested_title": suggested,
+            "vault_results": [],
+            "channel_results": channel_results,
+            "torrent_results": torrent_results,
+            "vault_page": 0,
+            "channel_page": 0,
+            "torrent_page": 0
+        }
+        text, markup = render_channel_view(qid, page=0)
+        await status_msg.edit_text(text, reply_markup=markup)
+
+    # Scenario 3: Neither Vault nor Channels have it; search online cloud torrents
     else:
-        # No vault files; search multi-engine cloud torrents
-        await status_msg.edit_text(f"⚡ No vault files found. Searching 30+ online cloud releases for `{search_term}`...")
+        await status_msg.edit_text(f"⚡ Searching 30+ online cloud releases for `{search_term}`...")
         torrent_results = search_torrents(query, limit=35)
 
         SEARCH_CACHE[qid] = {
@@ -229,8 +343,10 @@ async def search_handler(client: Client, message: Message):
             "clean_title": search_term,
             "suggested_title": suggested,
             "vault_results": [],
+            "channel_results": channel_results,
             "torrent_results": torrent_results,
             "vault_page": 0,
+            "channel_page": 0,
             "torrent_page": 0
         }
 
@@ -241,7 +357,7 @@ async def search_handler(client: Client, message: Message):
             total_vault = await db.count_files()
             sug_text = f"\n\n💡 *Did you mean:* **{suggested}**?" if suggested else ""
             help_text = (
-                f"❌ No files found for **{search_term}** in your Vault or Online Indexers.{sug_text}\n\n"
+                f"❌ No releases found for **{search_term}** in Vault, Telegram Channels, or Torrent Indexers.{sug_text}\n\n"
                 f"📊 **Vault Status:** `{total_vault}` files currently indexed.\n"
                 f"💡 Tip: Check spelling or forward the movie video directly to the bot to index it!"
             )
@@ -274,6 +390,14 @@ async def suggestion_search_callback(client: Client, callback: CallbackQuery):
             fn = (doc.get("file_name", "") + " " + doc.get("caption", "")).lower()
             return any(a in fn for a in aliases) or "multi" in fn or "dual" in fn
         vault_results.sort(key=vault_lang_score, reverse=True)
+
+    channel_results = []
+    if userbot_harvester.is_available():
+        try:
+            channel_results = await userbot_harvester.search_channels(search_term, limit=20)
+        except Exception:
+            pass
+
     torrent_results = search_torrents(new_query, limit=35)
 
     SEARCH_CACHE[new_qid] = {
@@ -281,13 +405,17 @@ async def suggestion_search_callback(client: Client, callback: CallbackQuery):
         "clean_title": search_term,
         "suggested_title": None,
         "vault_results": vault_results,
+        "channel_results": channel_results,
         "torrent_results": torrent_results,
         "vault_page": 0,
+        "channel_page": 0,
         "torrent_page": 0
     }
 
     if vault_results:
         text, markup = render_vault_view(new_qid, page=0)
+    elif channel_results:
+        text, markup = render_channel_view(new_qid, page=0)
     elif torrent_results:
         text, markup = render_torrent_view(new_qid, page=0)
     else:
@@ -298,7 +426,6 @@ async def suggestion_search_callback(client: Client, callback: CallbackQuery):
 
 @Client.on_callback_query(filters.regex(r"^pv_"))
 async def paginate_vault_callback(client: Client, callback: CallbackQuery):
-    """Handles pagination for the Vault Tab"""
     parts = callback.data.split("_")
     page = int(parts[1])
     qid = parts[2]
@@ -306,9 +433,17 @@ async def paginate_vault_callback(client: Client, callback: CallbackQuery):
     text, markup = render_vault_view(qid, page=page)
     await callback.message.edit_text(text, reply_markup=markup)
 
+@Client.on_callback_query(filters.regex(r"^pc_"))
+async def paginate_channel_callback(client: Client, callback: CallbackQuery):
+    parts = callback.data.split("_")
+    page = int(parts[1])
+    qid = parts[2]
+    await callback.answer()
+    text, markup = render_channel_view(qid, page=page)
+    await callback.message.edit_text(text, reply_markup=markup)
+
 @Client.on_callback_query(filters.regex(r"^pt_"))
 async def paginate_torrents_callback(client: Client, callback: CallbackQuery):
-    """Handles pagination for the Cloud Torrents Tab"""
     parts = callback.data.split("_")
     page = int(parts[1])
     qid = parts[2]
@@ -319,15 +454,9 @@ async def paginate_torrents_callback(client: Client, callback: CallbackQuery):
 @Client.on_callback_query(filters.regex(r"^sel_tor_"))
 async def select_torrent_callback(client: Client, callback: CallbackQuery):
     """
-    Renders the In-Place Details & Gateway view after user taps a release from search results.
-    Displays:
-    1. Full Release specs, seeders, audio.
-    2. 1-Tap copyable magnet code block.
-    3. Dual Leech buttons (Oracle VM vs GitHub Actions).
-    4. '◀️ Back to Search Results' button to restore the search list.
+    Renders In-Place Details & Gateway for Torrents.
     """
     parts = callback.data.split("_")
-    # callback format: sel_tor_{info_hash}_{qid}_{page}
     if len(parts) >= 5:
         info_hash = parts[2]
         qid = parts[3]
@@ -340,7 +469,7 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
         qid = ""
         page = 0
     else:
-        await callback.answer("Invalid release selection.", show_alert=True)
+        await callback.answer("Invalid selection.", show_alert=True)
         return
 
     item = get_cached_torrent(info_hash)
@@ -362,7 +491,6 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
     size = item.get("size", "N/A")
     seeds = item.get("seeds", 0)
     seed_badge = item.get("seed_badge", f"{seeds} Seeds")
-    magnet = item.get("magnet", "")
 
     detail_lines = [
         f"🎬 **Release Details & Leech Gateway**\n",
@@ -395,28 +523,225 @@ async def select_torrent_callback(client: Client, callback: CallbackQuery):
         disable_web_page_preview=True
     )
 
-@Client.on_callback_query(filters.regex(r"^copy_mag_"))
-async def copy_magnet_callback(client: Client, callback: CallbackQuery):
+@Client.on_callback_query(filters.regex(r"^sel_chn_"))
+async def select_channel_callback(client: Client, callback: CallbackQuery):
     """
-    Sends the 1-tap copyable magnet link as a clean standalone message.
-    Tapping the monospace code block in Telegram copies directly to the device clipboard.
+    Renders In-Place Details & Gateway for Telegram Channel Releases.
     """
-    info_hash = callback.data.replace("copy_mag_", "")
-    item = get_cached_torrent(info_hash)
-    if not item:
-        await callback.answer("Magnet link expired. Please search again.", show_alert=True)
+    parts = callback.data.split("_")
+    # callback format: sel_chn_{hid}_{qid}_{page}
+    if len(parts) >= 5:
+        hid = parts[2]
+        qid = parts[3]
+        try:
+            page = int(parts[4])
+        except ValueError:
+            page = 0
+    else:
+        await callback.answer("Invalid selection.", show_alert=True)
         return
 
-    await callback.answer("Magnet link sent below!")
-    magnet = item.get("magnet", "")
-    title = item.get("title", "Torrent Release")
+    item = userbot_harvester.get_cached_item(hid)
+    if not item and qid and qid in SEARCH_CACHE:
+        for c in SEARCH_CACHE[qid].get("channel_results", []):
+            if c.get("harvest_id") == hid:
+                item = c
+                break
 
-    msg_text = (
-        f"📋 **Tap below to copy Magnet Link:**\n"
-        f"`{magnet}`\n\n"
-        f"💡 *Tap the code box above to copy instantly to clipboard for 1DM, Flud, or qBittorrent.*"
+    if not item:
+        await callback.answer("Release details expired. Please search again.", show_alert=True)
+        return
+
+    await callback.answer()
+
+    file_name = item.get("file_name", "Unknown Release")
+    chat_title = item.get("source_chat_title", "Telegram Channel")
+    size = item.get("size", "N/A")
+    quality = item.get("quality", "HD")
+    languages = item.get("languages", "Original Audio")
+
+    detail_lines = [
+        f"🎬 **Telegram Channel Release Gateway**\n",
+        f"📽️ **Title:** `{file_name}`",
+        f"📺 **Source Channel:** `{chat_title}`",
+        f"📦 **Size:** `{size}` • 🔊 **Audio:** `{languages}` • `{quality}`\n",
+        f"⚡ **Cloud Ingestion Engine:**",
+        f"• Instant cloud-to-cloud copy into your private Vault in 1–2 seconds.",
+        f"• 100% complete media file (immune to dead swarms or stalled downloads).",
+        f"• 0 MB mobile hotspot data and 0 MB VM server bandwidth."
+    ]
+
+    action_buttons = [
+        [
+            InlineKeyboardButton("⚡ Instant Cloud Copy to Vault (2s)", callback_data=f"harvest_{hid}")
+        ]
+    ]
+
+    if qid:
+        action_buttons.append([
+            InlineKeyboardButton("◀️ Back to Channel Results", callback_data=f"pc_{page}_{qid}")
+        ])
+
+    await callback.message.edit_text(
+        "\n".join(detail_lines),
+        reply_markup=InlineKeyboardMarkup(action_buttons),
+        disable_web_page_preview=True
     )
-    await callback.message.reply_text(msg_text, disable_web_page_preview=True)
+
+@Client.on_callback_query(filters.regex(r"^harvest_"))
+async def harvest_channel_file_callback(client: Client, callback: CallbackQuery):
+    """
+    Executes instant cloud-to-cloud copy from source Telegram channel to user's Vault.
+    Saves to MongoDB Atlas and delivers streaming link + cached video to user in chat.
+    """
+    hid = callback.data.replace("harvest_", "")
+
+    if not userbot_harvester.is_available():
+        guide_text = (
+            "⚠️ **Telegram Userbot Harvester Not Configured**\n\n"
+            "To enable instant 2-second cloud harvesting from public movie channels:\n"
+            "1. Run `python scripts/generate_string_session.py` (takes 1 min).\n"
+            "2. Add `TELEGRAM_SESSION_STRING=...` to your `.env` on Oracle VM.\n"
+            "3. Restart StreamVault: `sudo systemctl restart streamvault`\n\n"
+            "💡 *This enables cloud-to-cloud copies in 2 seconds with 0 MB hotspot data!*"
+        )
+        await callback.answer("Userbot not configured.", show_alert=True)
+        await callback.message.reply_text(guide_text)
+        return
+
+    item = userbot_harvester.get_cached_item(hid)
+    file_name = item.get("file_name", "Movie") if item else "Movie"
+
+    await callback.answer("Starting instant cloud ingestion...")
+    status_msg = await callback.message.edit_text(
+        f"⚡ **Ingesting Movie to Cloud Vault...**\n\n"
+        f"🎬 **File:** `{file_name}`\n"
+        f"⏳ Copying cloud-to-cloud across Telegram servers...\n"
+        f"📱 **Mobile Hotspot Data Used:** **0 MB**"
+    )
+
+    try:
+        res = await userbot_harvester.copy_to_vault(hid, bot_client=client)
+        unique_id = res["unique_id"]
+        file_id = res["file_id"]
+        duration = res["duration"]
+        size_str = format_size(res["file_size"])
+        stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
+
+        success_text = (
+            f"🎉 **Cloud Ingestion Complete in {duration:.2f}s!**\n\n"
+            f"🎬 **Title:** `{res['file_name']}`\n"
+            f"📦 **Size:** `{size_str}`\n"
+            f"💾 **Saved to Vault:** Permanently indexed in MongoDB Atlas!\n"
+            f"📱 **Mobile Hotspot Data Used:** **0 MB**\n\n"
+            f"🔗 **Direct Stream / Download Link:**\n`{stream_link}`\n\n"
+            f"📽️ Delivering video directly to chat below:"
+        )
+        await status_msg.edit_text(success_text)
+
+        # Deliver cached media directly in chat
+        caption = (
+            f"🎬 **{res['file_name']}**\n\n"
+            f"📦 **Size:** `{size_str}`\n"
+            f"🔗 **Direct Stream (VLC/Browser):**\n`{stream_link}`"
+        )
+        await client.send_cached_media(
+            chat_id=callback.message.chat.id,
+            file_id=file_id,
+            caption=caption
+        )
+
+    except Exception as e:
+        logger.error(f"Cloud ingestion failed for {hid}: {e}")
+        await status_msg.edit_text(
+            f"❌ **Cloud Ingestion Failed:** `{e}`\n\n"
+            f"💡 Ensure your userbot account has access to the channel or that the channel post is still accessible."
+        )
+
+@Client.on_callback_query(filters.regex(r"^srch_chn_"))
+async def search_channels_from_torrent_callback(client: Client, callback: CallbackQuery):
+    """
+    1-Tap rescue search: triggered when a torrent stalls or has 0 seeders.
+    Instantly searches Telegram movie channels for the same title.
+    """
+    info_hash = callback.data.replace("srch_chn_", "")
+    item = get_cached_torrent(info_hash)
+    raw_title = item.get("title", "") if item else ""
+    if not raw_title:
+        await callback.answer("Torrent details expired. Please search by typing the movie title.", show_alert=True)
+        return
+
+    clean_title, _ = extract_language_and_title(raw_title)
+    search_term = clean_title if clean_title else raw_title
+    qid = get_query_id(search_term)
+
+    if not userbot_harvester.is_available():
+        await callback.answer()
+        guide_text = (
+            "⚠️ **Telegram Userbot Harvester Not Configured**\n\n"
+            "To enable instant 2-second cloud harvesting from public Telegram movie channels:\n"
+            "1. Run `python scripts/generate_string_session.py` (takes 1 min).\n"
+            "2. Add `TELEGRAM_SESSION_STRING=...` to your `.env` on Oracle VM.\n"
+            "3. Restart StreamVault: `sudo systemctl restart streamvault`\n\n"
+            "💡 *This downloads movies directly from Telegram cloud in 2 seconds with 0 MB hotspot data!*"
+        )
+        await callback.message.reply_text(guide_text)
+        return
+
+    await callback.answer("Searching Telegram movie channels...")
+    status_msg = await callback.message.reply_text(f"🔍 Searching 30+ Telegram movie channels for `{search_term}`...")
+    channel_results = await userbot_harvester.search_channels(search_term, limit=20)
+
+    SEARCH_CACHE[qid] = {
+        "query": search_term,
+        "clean_title": search_term,
+        "suggested_title": None,
+        "vault_results": [],
+        "channel_results": channel_results,
+        "torrent_results": [item] if item else [],
+        "vault_page": 0,
+        "channel_page": 0,
+        "torrent_page": 0
+    }
+
+    if channel_results:
+        text, markup = render_channel_view(qid, page=0)
+        await status_msg.edit_text(text, reply_markup=markup)
+    else:
+        await status_msg.edit_text(
+            f"❌ No matching video files found on scanned Telegram channels for `{search_term}`.\n"
+            f"💡 Try searching with a shorter title keyword."
+        )
+
+@Client.on_callback_query(filters.regex(r"^sw_chn_"))
+async def switch_to_channels_callback(client: Client, callback: CallbackQuery):
+    """Switches view to the Telegram Channels Tab"""
+    qid = callback.data.replace("sw_chn_", "")
+    data = SEARCH_CACHE.get(qid)
+    if not data:
+        await callback.answer("Session expired.", show_alert=True)
+        return
+
+    if not userbot_harvester.is_available():
+        await callback.answer()
+        guide_text = (
+            "⚠️ **Telegram Userbot Harvester Not Configured**\n\n"
+            "To enable instant 2-second cloud harvesting from Telegram movie channels:\n"
+            "1. Run `python scripts/generate_string_session.py` (takes 1 min).\n"
+            "2. Add `TELEGRAM_SESSION_STRING=...` to your `.env` on Oracle VM.\n"
+            "3. Restart StreamVault: `sudo systemctl restart streamvault`\n\n"
+            "💡 *Torrents and Vault files are still fully active!*"
+        )
+        await callback.message.reply_text(guide_text)
+        return
+
+    await callback.answer("Opening Telegram Channels...")
+    if not data.get("channel_results"):
+        await callback.message.edit_text(f"📡 Searching Telegram movie channels for `{data['clean_title']}`...")
+        data["channel_results"] = await userbot_harvester.search_channels(data["clean_title"], limit=20)
+
+    text, markup = render_channel_view(qid, page=data.get("channel_page", 0))
+    await callback.message.edit_text(text, reply_markup=markup)
 
 @Client.on_callback_query(filters.regex(r"^sw_tor_"))
 async def switch_to_torrents_callback(client: Client, callback: CallbackQuery):
@@ -447,6 +772,25 @@ async def switch_to_vault_callback(client: Client, callback: CallbackQuery):
     text, markup = render_vault_view(qid, page=data.get("vault_page", 0))
     await callback.message.edit_text(text, reply_markup=markup)
 
+@Client.on_callback_query(filters.regex(r"^copy_mag_"))
+async def copy_magnet_callback(client: Client, callback: CallbackQuery):
+    """Sends the 1-tap copyable magnet link as a clean standalone message."""
+    info_hash = callback.data.replace("copy_mag_", "")
+    item = get_cached_torrent(info_hash)
+    if not item:
+        await callback.answer("Magnet link expired. Please search again.", show_alert=True)
+        return
+
+    await callback.answer("Magnet link sent below!")
+    magnet = item.get("magnet", "")
+
+    msg_text = (
+        f"📋 **Tap below to copy Magnet Link:**\n"
+        f"`{magnet}`\n\n"
+        f"💡 *Tap the code box above to copy instantly to clipboard for 1DM, Flud, or qBittorrent.*"
+    )
+    await callback.message.reply_text(msg_text, disable_web_page_preview=True)
+
 @Client.on_callback_query(filters.regex(r"^noop_"))
 async def noop_callback(client: Client, callback: CallbackQuery):
     """No-op handler for non-clickable page number buttons"""
@@ -454,9 +798,7 @@ async def noop_callback(client: Client, callback: CallbackQuery):
 
 @Client.on_callback_query(filters.regex(r"^get_"))
 async def deliver_file_callback(client: Client, callback: CallbackQuery):
-    """
-    Delivers the requested file from the vault along with the Direct Stream Link in caption.
-    """
+    """Delivers the requested file from the vault along with Direct Stream Link."""
     unique_id = callback.data.split("get_")[1]
     file_doc = await db.get_file_by_id(unique_id)
 
