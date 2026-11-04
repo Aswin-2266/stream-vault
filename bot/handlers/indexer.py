@@ -202,6 +202,21 @@ async def auto_save_handler(client: Client, message: Message):
     file_size = media.file_size
     unique_id = media.file_unique_id
 
+    # 1. Check if file already exists in database (deduplicate & prevent duplicate channel copies)
+    existing_file = await db.get_file_by_id(unique_id)
+    if existing_file:
+        saved_unique_id = existing_file.get("unique_id", unique_id)
+        stream_link = f"{config.STREAM_URL}/stream/{saved_unique_id}"
+        caption = (
+            f"⚡ **Already in Vault!**\n\n"
+            f"📁 **File:** `{existing_file.get('file_name', file_name)}`\n"
+            f"📦 **Size:** `{format_size(existing_file.get('file_size', file_size))}`\n\n"
+            f"🔗 **Direct Stream Link (VLC/Browser):**\n`{stream_link}`"
+        )
+        await message.reply_text(caption)
+        return
+
+    # 2. New file: Save to private channel ONCE and index
     status = await message.reply_text("💾 **Saving to StreamVault...**")
 
     # Copy to the permanent log channel
@@ -226,7 +241,7 @@ async def auto_save_handler(client: Client, message: Message):
     stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
 
     caption = (
-        f"✅ **Successfully Saved to Vault!**\n\n"
+        f"✅ **Saved to Vault!**\n\n"
         f"📁 **File:** `{file_name}`\n"
         f"📦 **Size:** `{format_size(file_size)}`\n\n"
         f"🔗 **Direct Stream Link (VLC/Browser):**\n`{stream_link}`"

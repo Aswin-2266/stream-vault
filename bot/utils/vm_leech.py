@@ -82,8 +82,6 @@ def send_telegram_progress(
         "disable_web_page_preview": True
     }
     keyboard = []
-    if stream_url:
-        keyboard.append([{"text": "▶️ Stream / Download Now (0s Wait)", "url": stream_url}])
     if info_hash:
         keyboard.append([{"text": "📋 Copy Magnet Link", "callback_data": f"copy_mag_{info_hash}"}])
     if keyboard:
