@@ -38,7 +38,8 @@ def send_telegram_progress(
     speed: str = "",
     eta: str = "",
     status_text: str = "",
-    is_failed: bool = False
+    is_failed: bool = False,
+    stream_url: str = ""
 ):
     """Sends a fast, non-blocking HTTP REST call to edit the Telegram message with live progress."""
     if not (bot_token and chat_id and message_id):
@@ -53,12 +54,17 @@ def send_telegram_progress(
     else:
         status_line = f"<code>[{bar}] {pct}%</code>\n{status_text}"
 
+    stream_section = ""
+    if stream_url:
+        stream_section = f"\n🔗 <b>Direct Stream Link:</b>\n<code>{html.escape(stream_url)}</code>\n"
+
     html_text = (
         f"⚡ <b>Oracle Cloud Native Leech</b>\n\n"
         f"🎬 <b>Title:</b> <code>{html.escape(title)}</code>\n"
         f"📦 <b>Size:</b> <code>{html.escape(str(size))}</code> • 🌱 <b>Seeds:</b> <code>{html.escape(str(seeds))}</code>\n\n"
         f"🚀 <b>Live Leech Status:</b>\n"
         f"{status_line}\n"
+        f"{stream_section}"
         f"🌐 <b>Server:</b> Oracle Cloud (<code>140.245.193.224</code>)\n"
         f"📱 <b>Mobile Hotspot Data Used:</b> <b>0 MB</b>"
     )
@@ -76,10 +82,10 @@ def send_telegram_progress(
         "disable_web_page_preview": True
     }
     keyboard = []
+    if stream_url:
+        keyboard.append([{"text": "▶️ Stream / Download Now (0s Wait)", "url": stream_url}])
     if info_hash:
         keyboard.append([{"text": "📋 Copy Magnet Link", "callback_data": f"copy_mag_{info_hash}"}])
-        if is_failed:
-            keyboard.append([{"text": "📡 Search Telegram Channels for this Movie", "callback_data": f"srch_chn_{info_hash}"}])
     if keyboard:
         payload["reply_markup"] = {"inline_keyboard": keyboard}
     try:
@@ -247,11 +253,15 @@ class VMLeechManager:
 
                 # Phase 1: Deliver Instant Stream Links immediately (0s wait time!)
                 pre_unique_map: dict[str, str] = {}
+                primary_stream_url = ""
                 for vid_idx, video_file in enumerate(video_files, start=1):
                     raw_fn = os.path.basename(video_file)
                     raw_sz = os.path.getsize(video_file)
                     unique_id = hashlib.md5(f"{task_id}_{vid_idx}_{raw_fn}".encode()).hexdigest()[:12]
                     pre_unique_map[video_file] = unique_id
+                    stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
+                    if not primary_stream_url:
+                        primary_stream_url = stream_link
 
                     # Save preliminary record with local_path for instant SSD playback
                     pre_doc = {
@@ -267,7 +277,6 @@ class VMLeechManager:
                     await db.save_file(pre_doc)
 
                     if user_id:
-                        stream_link = f"{config.STREAM_URL}/stream/{unique_id}"
                         instant_notice = (
                             f"⚡ **Instant Stream Link Ready! (0s Wait)**\n\n"
                             f"🎬 **File:** `{raw_fn}`\n"
@@ -280,11 +289,13 @@ class VMLeechManager:
                         except Exception as e:
                             logger.warning(f"Could not send instant stream message: {e}")
 
+                # Update progress card with immediate 0s wait streaming button!
                 send_telegram_progress(
                     config.BOT_TOKEN, chat_id, message_id,
                     title=title, size=size, seeds=seeds, magnet=magnet,
                     pct=100,
-                    status_text="⚡ <b>Instant Stream Link Sent!</b> Now uploading to Telegram Vault in background..."
+                    stream_url=primary_stream_url,
+                    status_text="⚡ <b>Download Complete! Ready to Stream (0s Wait)</b>\nTap button below for instant VLC/Browser playback.\n⏳ <i>Archiving to Telegram Vault in background...</i>"
                 )
 
                 # Phase 2: Upload to Telegram Cloud Vault for permanent retention
@@ -295,6 +306,7 @@ class VMLeechManager:
                             config.BOT_TOKEN, chat_id, message_id,
                             title=title, size=size, seeds=seeds, magnet=magnet,
                             pct=100,
+                            stream_url=primary_stream_url,
                             status_text=f"✂️ <b>Lossless Video Splitting:</b> File ({format_size(os.path.getsize(video_file))}) exceeds 1.95 GB. Splitting into parts..."
                         )
                     parts = split_video_lossless(video_file)
@@ -312,6 +324,7 @@ class VMLeechManager:
                             config.BOT_TOKEN, chat_id, message_id,
                             title=title, size=size, seeds=seeds, magnet=magnet,
                             pct=100,
+                            stream_url=primary_stream_url,
                             status_text=f"📤 <b>Uploading to Telegram Vault:</b>\n<code>{html.escape(part_name)}{html.escape(part_label)}</code> ({format_size(part_size)})..."
                         )
                         last_up_update = [0.0]
@@ -325,6 +338,7 @@ class VMLeechManager:
                                     config.BOT_TOKEN, chat_id, message_id,
                                     title=title, size=size, seeds=seeds, magnet=magnet,
                                     pct=100,
+                                    stream_url=primary_stream_url,
                                     status_text=f"📤 <b>Uploading to Telegram Vault:</b>\n<code>[{bar_up}] {pct_up}%</code> ({format_size(current)} / {format_size(total)})\n<code>{html.escape(part_name)}{html.escape(part_label)}</code>"
                                 )
 
@@ -371,6 +385,7 @@ class VMLeechManager:
                     config.BOT_TOKEN, chat_id, message_id,
                     title=title, size=size, seeds=seeds, magnet=magnet,
                     pct=100,
+                    stream_url=primary_stream_url,
                     status_text="🎉 <b>Leech &amp; Vault Backup Complete!</b>\nVideo file delivered below. Permanent streaming link active!"
                 )
                 logger.info(f"[Oracle VM Leech] Finished successfully: {title}")

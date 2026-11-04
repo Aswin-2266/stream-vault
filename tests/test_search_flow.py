@@ -77,39 +77,18 @@ class TestSearchSelectionFlow(unittest.TestCase):
         self.assertTrue(any("abc123hash" in c for c in sel_callbacks))
         self.assertTrue(any("def456hash" in c for c in sel_callbacks))
 
-    def test_render_channel_view_has_harvest_selection(self):
-        text, markup = render_channel_view(self.qid, page=0)
-        self.assertIn("Telegram Movie Channels for", text)
-        self.assertIn("TamilBlasters HD", text)
-        self.assertIsNotNone(markup)
-
-        chn_callbacks = []
-        for row in markup.inline_keyboard:
-            for btn in row:
-                if btn.callback_data and btn.callback_data.startswith("sel_chn_"):
-                    chn_callbacks.append(btn.callback_data)
-
-        self.assertEqual(len(chn_callbacks), 1)
-        self.assertIn("hid_inc_1080", chn_callbacks[0])
-
     def test_tab_switchers_present_across_views(self):
-        # Vault view should have switchers to Channels and Torrents
+        # Vault view should switch cleanly to Torrents
         _, v_markup = render_vault_view(self.qid, page=0)
         v_callbacks = [b.callback_data for r in v_markup.inline_keyboard for b in r]
-        self.assertTrue(any("sw_chn_" in c for c in v_callbacks))
         self.assertTrue(any("sw_tor_" in c for c in v_callbacks))
+        self.assertFalse(any("sw_chn_" in c for c in v_callbacks))
 
-        # Channel view should have switchers to Vault and Torrents
-        _, c_markup = render_channel_view(self.qid, page=0)
-        c_callbacks = [b.callback_data for r in c_markup.inline_keyboard for b in r]
-        self.assertTrue(any("sw_vlt_" in c for c in c_callbacks))
-        self.assertTrue(any("sw_tor_" in c for c in c_callbacks))
-
-        # Torrent view should have switchers to Vault and Channels
+        # Torrent view should switch cleanly to Vault
         _, t_markup = render_torrent_view(self.qid, page=0)
         t_callbacks = [b.callback_data for r in t_markup.inline_keyboard for b in r]
         self.assertTrue(any("sw_vlt_" in c for c in t_callbacks))
-        self.assertTrue(any("sw_chn_" in c for c in t_callbacks))
+        self.assertFalse(any("sw_chn_" in c for c in t_callbacks))
 
 if __name__ == "__main__":
     unittest.main()
