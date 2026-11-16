@@ -59,6 +59,20 @@ async def main():
     bot_info = await bot.get_me()
     logger.info(f"Telegram Bot Online: @{bot_info.username} (ID: {bot_info.id})")
 
+    # Step 5a: Register Telegram '/' command suggestions menu
+    try:
+        from hydrogram.types import BotCommand
+        await bot.set_bot_commands([
+            BotCommand("start", "Start the bot & view available commands"),
+            BotCommand("search", "Search movies, series & vault (<title>)"),
+            BotCommand("index", "Index files from a public channel (@channel)"),
+            BotCommand("logs", "View recent system activity logs"),
+            BotCommand("errors", "View recent system error logs")
+        ])
+        logger.info("Telegram bot commands registered successfully for '/' menu.")
+    except Exception as e:
+        logger.warning(f"Could not register bot commands: {e}")
+
     # Step 5b: Start Oracle VM Leech Worker & Rolling Storage Cleaner
     asyncio.create_task(vm_leech_manager.start_worker())
     start_storage_cleaner()

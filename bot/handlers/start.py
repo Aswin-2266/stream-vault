@@ -24,11 +24,15 @@ async def start_handler(client: Client, message: Message):
     total_files = await db.count_files()
     text = (
         f"👋 **Welcome to StreamVault, {message.from_user.first_name}!**\n\n"
-        "⚡ **Capabilities:**\n"
-        "• **Search Movies:** Send any movie name or `/search movie_title`\n"
-        "• **Direct Downloads:** Get files with VLC/browser streaming links in caption\n"
-        "• **Channel Indexer:** Send `/index @channel_username` to import files\n"
-        "• **Auto-Saver:** Forward any media file to this chat to index it permanently\n\n"
+        "⚡ **Available Commands:**\n"
+        "• `/search <title>` — Search movies, series, or library\n"
+        "• `/index @channel` — Index files from a public Telegram channel\n"
+        "• `/logs` — View recent system activity logs\n"
+        "• `/errors` — View recent system error logs\n"
+        "• `/start` — Show this help menu & system status\n\n"
+        "💡 **Quick Actions:**\n"
+        "• **Instant Search:** You can also just type any movie name directly in chat!\n"
+        "• **Direct Streaming:** Forward any video file to get an instant direct stream link.\n\n"
         f"📊 **Database Stats:** `{total_files}` indexed files currently in vault."
     )
     
