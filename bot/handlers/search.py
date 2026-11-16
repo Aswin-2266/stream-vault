@@ -263,7 +263,10 @@ async def search_handler(client: Client, message: Message):
     query = text.replace("/search", "", 1).strip()
     if len(query) < 2:
         if text.lower().startswith("/search"):
-            await message.reply_text("ℹ️ Please enter at least 2 characters to search.\nUsage: `/search <title>`")
+            await message.reply_text(
+                "💡 **How to Search:**\n"
+                "Just type any movie or series title directly in this chat (e.g. `Interstellar` or `Leo`), no `/search` command needed!"
+            )
         return
 
     clean_title, detected_lang = extract_language_and_title(query)

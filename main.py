@@ -64,7 +64,6 @@ async def main():
         from hydrogram.types import BotCommand
         await bot.set_bot_commands([
             BotCommand("start", "Start the bot & view available commands"),
-            BotCommand("search", "Search movies, series & vault (<title>)"),
             BotCommand("index", "Index files from a public channel (@channel)"),
             BotCommand("logs", "View recent system activity logs"),
             BotCommand("errors", "View recent system error logs")
